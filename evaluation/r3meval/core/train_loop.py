@@ -8,6 +8,7 @@ from r3meval.utils.obs_wrappers import MuJoCoPixelObs, StateEmbedding
 from r3meval.utils.sampling import sample_paths
 from r3meval.utils.gaussian_mlp import MLP
 from r3meval.utils.behavior_cloning import BC
+from r3meval.utils.visualizations import place_attention_heatmap_over_images
 from tabulate import tabulate
 from tqdm import tqdm
 import mj_envs, gym 
@@ -56,6 +57,8 @@ def make_bc_agent(env_kwargs:dict, bc_kwargs:dict, demo_paths:list, epochs:int, 
     ## Creates MLP (Where the FC Network has a batchnorm in front of it)
     policy = MLP(e.spec, hidden_sizes=(256, 256), seed=seed)
     policy.model.proprio_only = False
+    if bc_kwargs["load_path"]:
+        policy = pickle.load(open(bc_kwargs["load_path"], 'rb'))
         
     ## Pass the encoder params to the BC agent (for finetuning)
     if pixel_based:
@@ -96,7 +99,7 @@ def bc_train_loop(job_data:dict) -> None:
 
     # Infers the location of the demos
     ## V2 is metaworld, V0 adroit, V3 kitchen
-    data_dir = '/iris/u/surajn/data/r3m/'
+    data_dir = '/iris/u/kayburns/data/r3m/'
     if "v2" in job_data['env_kwargs']['env_name']:
         demo_paths_loc = data_dir + 'final_paths_multiview_meta_200/' + job_data['camera'] + '/' + job_data['env_kwargs']['env_name'] + '.pickle'
     elif "v0" in job_data['env_kwargs']['env_name']:
@@ -160,6 +163,12 @@ def bc_train_loop(job_data:dict) -> None:
                         from moviepy.editor import ImageSequenceClip
                         cl = ImageSequenceClip(vid, fps=20)
                         cl.write_gif(filename, fps=20)
+
+                        for j in range(12):
+                            heatmap_vid = place_attention_heatmap_over_images(vid, head=j)
+                            filename = f'./iterations/heatmap_vid_{i}_{j}.gif'
+                            cl = ImageSequenceClip(heatmap_vid, fps=20)
+                            cl.write_gif(filename, fps=20)
             except:
                 ## Success computation and logging for MetaWorld
                 sc = []

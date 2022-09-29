@@ -51,6 +51,7 @@ bc_kwargs:
   finetune        :   False
   proprio         :   ${proprio}  
   proprio_only    :   False
+#   load_path       :   "/iris/u/kayburns/new_arch/r3m/evaluation/outputs/BC_pretrained_rep/2022-09-26_18-34-53/r3m_repro/iterations/policy_1428.pickle"
 
 # general outputs
 job_name          :   'R3M'
