@@ -47,6 +47,47 @@ def _get_embedding(embedding_name='resnet34', load_path="", *args, **kwargs):
     model = model.eval()
     return model, embedding_dim
 
+def _get_shift(shift):
+
+    def no_shift(img):
+        return img
+
+    def bottom_left_copy_crop(img):
+        img[-25:,:120,:] = img[30:55,25:145,:]
+        return img
+
+    def bottom_left_red_rectangle(img):
+        img[-25:,:120,2] = 1
+        return img
+
+    def bottom_left_white_rectangle(img):
+        img[-25:,:120,:] = 255
+        return img
+
+    def bottom_left_no_blue_rectangle(img):
+        img[-25:,:120,2] = 1
+        return img
+    
+    def top_right_red_rectangle(img):
+        img[:40,125:,0] = 255
+        return img
+    
+    if shift == "none":
+        return no_shift
+    elif shift == "bottom_left_copy_crop":
+        return bottom_left_copy_crop
+    elif shift == "bottom_left_red_rectangle":
+        return bottom_left_red_rectangle
+    elif shift == "bottom_left_white_rectangle":
+        return bottom_left_white_rectangle
+    elif shift == "bottom_left_no_blue_rectangle":
+        return bottom_left_no_blue_rectangle
+    elif shift == "top_right_red_rectangle":
+        return top_right_red_rectangle
+    else:
+        print("Requested shift not available currently")
+        raise NotImplementedError
+
 
 class ClipEnc(nn.Module):
     def __init__(self, m):
@@ -72,7 +113,7 @@ class StateEmbedding(gym.ObservationWrapper):
         device (str, 'cuda'): where to allocate the model.
 
     """
-    def __init__(self, env, embedding_name=None, device='cuda', load_path="", proprio=0, camera_name=None, env_name=None):
+    def __init__(self, env, embedding_name=None, device='cuda', load_path="", proprio=0, camera_name=None, env_name=None, shift="none"):
         gym.ObservationWrapper.__init__(self, env)
 
         self.proprio = proprio
@@ -100,6 +141,33 @@ class StateEmbedding(gym.ObservationWrapper):
             self.transforms = T.Compose([T.Resize(256),
                         T.CenterCrop(224),
                         T.ToTensor()]) # ToTensor() divides by 255
+        elif "dino" in load_path:
+            embedding = torch.hub.load('facebookresearch/dino:main',
+                                       'dino_vits16')
+            embedding.eval()
+            embedding_dim = embedding.embed_dim
+
+            arch_args = load_path.split("-")
+            if len(arch_args) > 1:
+                head = int(arch_args[1])
+                # surgically remove some attention maps
+                state_dict = embedding.state_dict()
+                # zero out bias
+                new_bias = state_dict['blocks.11.attn.qkv.bias'].reshape((3, 6, -1))
+                new_bias[:,:head,:] = 0
+                new_bias[:,head+1:,:] = 0
+                state_dict['blocks.11.attn.qkv.bias'] = new_bias.reshape(-1)
+                # zero out weight
+                new_weight = state_dict['blocks.11.attn.qkv.weight'].reshape((3, 6, 64, 384))
+                new_weight[:,:head,:] = 0
+                new_weight[:,head+1:,:] = 0
+                state_dict['blocks.11.attn.qkv.weight'] = new_weight.reshape((-1,384))
+                embedding.load_state_dict(state_dict)
+
+            self.transforms = T.Compose([T.ToTensor(),
+                                         T.Resize(224),
+                                         T.Normalize((0.485, 0.456, 0.406),
+                                                     (0.229, 0.224, 0.225))])
         else:
             raise NameError("Invalid Model")
         embedding.eval()
@@ -170,7 +238,7 @@ class StateEmbedding(gym.ObservationWrapper):
 
 
 class MuJoCoPixelObs(gym.ObservationWrapper):
-    def __init__(self, env, width, height, camera_name, device_id=-1, depth=False, *args, **kwargs):
+    def __init__(self, env, width, height, camera_name, device_id=-1, depth=False, shift="none", *args, **kwargs):
         gym.ObservationWrapper.__init__(self, env)
         self.observation_space = Box(low=0., high=255., shape=(3, width, height))
         self.width = width
@@ -178,6 +246,7 @@ class MuJoCoPixelObs(gym.ObservationWrapper):
         self.camera_name = camera_name
         self.depth = depth
         self.device_id = device_id
+        self.shift = _get_shift(shift)
         if "v2" in env.spec.id:
             self.get_obs = env._get_obs
 
@@ -189,6 +258,8 @@ class MuJoCoPixelObs(gym.ObservationWrapper):
             img = self.sim.render(width=self.width, height=self.height, depth=self.depth,
                               camera_name=self.camera_name, device_id=self.device_id)
         img = img[::-1,:,:]
+        img = self.shift(img)
+
         return img
 
     def observation(self, observation):

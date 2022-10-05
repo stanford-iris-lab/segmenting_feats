@@ -8,7 +8,7 @@ import time as timer
 import hydra
 import multiprocessing
 from omegaconf import DictConfig, OmegaConf
-from train_loop import bc_train_loop
+from train_loop import bc_train_loop, eval_loop
 
 cwd = os.getcwd()
 
@@ -29,7 +29,10 @@ def configure_jobs(job_data:dict) -> None:
     with open('job_config.json', 'w') as fp:
         OmegaConf.save(config=job_data, f=fp.name)
     print(OmegaConf.to_yaml(job_data))
-    bc_train_loop(job_data)
+    if job_data["eval"]["eval"]:
+        eval_loop(job_data)
+    else:
+        bc_train_loop(job_data)
 
 if __name__ == "__main__":
     multiprocessing.set_start_method('spawn')

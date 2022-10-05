@@ -24,7 +24,8 @@ from metaworld.envs import (ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE,
 
 def env_constructor(env_name, device='cuda', image_width=256, image_height=256,
                     camera_name=None, embedding_name='resnet50', pixel_based=True,
-                    render_gpu_id=0, load_path="", proprio=False, lang_cond=False, gc=False):
+                    render_gpu_id=0, load_path="", proprio=False, lang_cond=False,
+                    ågc=False, shift="none"):
 
     ## If pixel based will wrap in a pixel observation wrapper
     if pixel_based:
@@ -39,7 +40,8 @@ def env_constructor(env_name, device='cuda', image_width=256, image_height=256,
             e = gym.make(env_name)
         ## Wrap in pixel observation wrapper
         e = MuJoCoPixelObs(e, width=image_width, height=image_height, 
-                           camera_name=camera_name, device_id=render_gpu_id)
+                           camera_name=camera_name, device_id=render_gpu_id,
+                           shift=shift)
         ## Wrapper which encodes state in pretrained model
         e = StateEmbedding(e, embedding_name=embedding_name, device=device, load_path=load_path, 
                         proprio=proprio, camera_name=camera_name, env_name=env_name)
@@ -164,11 +166,6 @@ def bc_train_loop(job_data:dict) -> None:
                         cl = ImageSequenceClip(vid, fps=20)
                         cl.write_gif(filename, fps=20)
 
-                        for j in range(12):
-                            heatmap_vid = place_attention_heatmap_over_images(vid, head=j)
-                            filename = f'./iterations/heatmap_vid_{i}_{j}.gif'
-                            cl = ImageSequenceClip(heatmap_vid, fps=20)
-                            cl.write_gif(filename, fps=20)
             except:
                 ## Success computation and logging for MetaWorld
                 sc = []
@@ -200,4 +197,86 @@ def bc_train_loop(job_data:dict) -> None:
             break
     agent.logger.log_kv('max_success', max_success)
     agent.logger.save_wb(step=agent.steps)
+
+def eval_loop(job_data:dict) -> None:
+
+    # configure GPUs
+    os.environ['GPUS'] = os.environ.get('SLURM_STEP_GPUS', '0')
+    physical_gpu_id = 0 #configure_cluster_GPUs(job_data['env_kwargs']['render_gpu_id'])
+    job_data['env_kwargs']['render_gpu_id'] = physical_gpu_id
+
+    # Infers the location of the demos
+    ## V2 is metaworld, V0 adroit, V3 kitchen
+    data_dir = '/iris/u/kayburns/data/r3m/'
+    if "v2" in job_data['env_kwargs']['env_name']:
+        demo_paths_loc = data_dir + 'final_paths_multiview_meta_200/' + job_data['camera'] + '/' + job_data['env_kwargs']['env_name'] + '.pickle'
+    elif "v0" in job_data['env_kwargs']['env_name']:
+        demo_paths_loc = data_dir + 'final_paths_multiview_adroit_200/' + job_data['camera'] + '/' + job_data['env_kwargs']['env_name'] + '.pickle'
+    else:
+        demo_paths_loc = data_dir + 'final_paths_multiview_rb_200/' + job_data['camera'] + '/' + job_data['env_kwargs']['env_name'] + '.pickle'
+
+    ## Loads the demos
+    demo_paths = pickle.load(open(demo_paths_loc, 'rb'))
+    demo_paths = demo_paths[:job_data['num_demos']]
+    print(len(demo_paths))
+    demo_score = np.mean([np.sum(p['rewards']) for p in demo_paths])
+    print("Demonstration score : %.2f " % demo_score)
+
+    # Make log dir
+    if os.path.isdir(job_data['job_name']) == False: os.mkdir(job_data['job_name'])
+    previous_dir = os.getcwd()
+    os.chdir(job_data['job_name']) # important! we are now in the directory to save data
+    if os.path.isdir('iterations') == False: os.mkdir('iterations')
+    if os.path.isdir('logs') == False: os.mkdir('logs')
+
+    ## Creates agent and environment
+    env_kwargs = job_data['env_kwargs']
+    e, agent = make_bc_agent(env_kwargs=env_kwargs, bc_kwargs=job_data['bc_kwargs'], 
+                             demo_paths=demo_paths, epochs=1, seed=job_data['seed'], pixel_based=job_data["pixel_based"])
+    agent.logger.init_wb(job_data)
+
+    # perform evaluation rollouts every few epochs
+    agent.policy.model.eval()
+    if job_data['pixel_based']:
+        e.env.embedding.eval()
+    paths = sample_paths(num_traj=job_data['eval_num_traj'], env=e, #env_constructor, 
+                            policy=agent.policy, eval_mode=True, horizon=e.horizon, 
+                            base_seed=job_data['seed'], num_cpu=job_data['num_cpu'], 
+                            env_kwargs=env_kwargs)
+    
+    try:
+        ## Success computation and logging for Adroit and Kitchen
+        success_percentage = e.env.unwrapped.evaluate_success(paths)
+        for i, path in enumerate(paths):
+            if (i < 3) and job_data['pixel_based']:
+                vid = path['images']
+                filename = f'./iterations/vid_{i}.gif'
+                from moviepy.editor import ImageSequenceClip
+                cl = ImageSequenceClip(vid, fps=20)
+                cl.write_gif(filename, fps=20)
+
+                for j in (3, 2):
+                    heatmap_vid = place_attention_heatmap_over_images(vid, e.env.embedding, head=j)
+                    filename = f'./iterations/heatmap_vid_{i}_{j}.gif'
+                    cl = ImageSequenceClip(heatmap_vid, fps=20)
+                    cl.write_gif(filename, fps=20)
+    except:
+        ## Success computation and logging for MetaWorld
+        sc = []
+        for i, path in enumerate(paths):
+            sc.append(path['env_infos']['success'][-1])
+            if (i < 10) and job_data['pixel_based']:
+                vid = path['images']
+                filename = f'./iterations/vid_{i}.gif'
+                from moviepy.editor import ImageSequenceClip
+                cl = ImageSequenceClip(vid, fps=20)
+                cl.write_gif(filename, fps=20)
+        success_percentage = np.mean(sc) * 100
+    agent.logger.log_kv('load_step', agent.steps)
+    agent.logger.log_kv('zero_shot_success', success_percentage)
+    agent.logger.save_wb(step=0)
+    
+    print_data = sorted(filter(lambda v: np.asarray(v[1]).size == 1,
+                                agent.logger.get_current_log().items()))
+    print(tabulate(print_data))
 

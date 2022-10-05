@@ -9,7 +9,7 @@ from torchvision import transforms as T
 
 import mvp
 
-def place_attention_heatmap_over_images(images, head=1):
+def place_attention_heatmap_over_images(images, vision_model, head=1):
 
     H, W = 224, 224
     patch_size = 16
@@ -20,8 +20,6 @@ def place_attention_heatmap_over_images(images, head=1):
                             T.Resize(H),
                             T.Normalize((0.485, 0.456, 0.406),
                                         (0.229, 0.224, 0.225))])
-    vision_model = mvp.load("vits-sup-in")
-    # vision_model = torch.hub.load('facebookresearch/dino:main', 'dino_vits8')
 
     cmap = plt.get_cmap('jet')
     
@@ -34,14 +32,14 @@ def place_attention_heatmap_over_images(images, head=1):
         torch_image = transforms(image)
 
         # grab the output attention map at the desired attention head
-        attn = vision_model.forward_attention(torch_image.unsqueeze(0), layer=11)
-        # attn = vision_model.get_last_selfattention(torch_image.unsqueeze(0))
+        # attn = vision_model.forward_attention(torch_image.unsqueeze(0), layer=11)
+        attn = vision_model.get_last_selfattention(torch_image.unsqueeze(0).to('cuda'))
         attn_map = attn[0,head,0,1:].reshape(1, 1, new_H, new_W) # B, C, H, W
 
         # interpolate smoothly to create a heatmap
         resized_attn_map = F.interpolate(attn_map, scale_factor=patch_size,
                                          mode='bilinear')
-        resized_attn_map = resized_attn_map.detach().numpy().squeeze()
+        resized_attn_map = resized_attn_map.cpu().detach().numpy().squeeze()
 
         # convert attention scores to heatmap
         image = cv2.resize(image, (W, H))
