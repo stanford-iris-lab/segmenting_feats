@@ -14,8 +14,16 @@ cd /iris/u/kayburns/new_arch/r3m/evaluation/
 #     embedding=resnet50 num_demos=5 env_kwargs.load_path=r3m \
 #     bc_kwargs.finetune=false proprio=9 job_name=r3m_repro seed=125
 
+# fine-tune all heads, last layer
 cd /iris/u/kayburns/new_arch/r3m/evaluation/
 python r3meval/core/hydra_launcher.py hydra/launcher=local hydra/output=local \
     env="kitchen_sdoor_open-v3" camera="left_cap2" pixel_based=true \
-    embedding=dino-2 num_demos=5 env_kwargs.load_path=dino-2 \
-    bc_kwargs.finetune=false proprio=9 job_name=r3m_repro_2 seed=124
+    embedding=dino num_demos=5 env_kwargs.load_path=dino \
+    bc_kwargs.finetune=true proprio=9 job_name=r3m_repro_all seed=123
+
+# blind baseline
+# cd /iris/u/kayburns/new_arch/r3m/evaluation/
+# python r3meval/core/hydra_launcher.py hydra/launcher=local hydra/output=local \
+#     env="kitchen_sdoor_open-v3" camera="left_cap2" pixel_based=true \
+#     embedding=ignore_input num_demos=5 env_kwargs.load_path=ignore_input \
+#     bc_kwargs.finetune=false proprio=9 job_name=r3m_repro_random seed=125

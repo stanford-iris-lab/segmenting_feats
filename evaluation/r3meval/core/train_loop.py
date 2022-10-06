@@ -25,7 +25,7 @@ from metaworld.envs import (ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE,
 def env_constructor(env_name, device='cuda', image_width=256, image_height=256,
                     camera_name=None, embedding_name='resnet50', pixel_based=True,
                     render_gpu_id=0, load_path="", proprio=False, lang_cond=False,
-                    ågc=False, shift="none"):
+                    gc=False, shift="none"):
 
     ## If pixel based will wrap in a pixel observation wrapper
     if pixel_based:
@@ -142,6 +142,11 @@ def bc_train_loop(job_data:dict) -> None:
         if (job_data['bc_kwargs']['finetune']) and (job_data['pixel_based']) and (job_data['env_kwargs']['load_path'] != "clip"):
             if last_step > (job_data['steps'] / 4.0):
                 e.env.embedding.train()
+                # freeze all but last layer
+                if "dino" in job_data["embedding"]:
+                    for name, param in e.env.embedding.named_parameters():
+                        if not ('blocks.11' in name or 'norm' in name):
+                            param.requires_grad = False
                 e.env.start_finetuning()
         agent.train(job_data['pixel_based'], suppress_fit_tqdm=True, step = last_step)
         
@@ -186,6 +191,7 @@ def bc_train_loop(job_data:dict) -> None:
 
             # save policy and logging
             pickle.dump(agent.policy, open('./iterations/policy_%i.pickle' % epoch, 'wb'))
+            pickle.dump(e.env.embedding, open('./iterations/embedding_%i.pickle' % epoch, 'wb'))
             agent.logger.save_log('./logs/')
             agent.logger.save_wb(step=agent.steps)
 

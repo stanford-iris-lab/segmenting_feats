@@ -98,6 +98,16 @@ class ClipEnc(nn.Module):
         return e
 
 
+class IgnoreEnc(nn.Module):
+    def __init__(self, m):
+        super().__init__()
+        self.m = m 
+
+    def forward(self, im):
+        B = im.shape[0]
+        return torch.normal(torch.zeros((B, self.m)), torch.ones(B, self.m))
+
+
 class StateEmbedding(gym.ObservationWrapper):
     """
     This wrapper places a convolution model over the observation.
@@ -141,6 +151,41 @@ class StateEmbedding(gym.ObservationWrapper):
             self.transforms = T.Compose([T.Resize(256),
                         T.CenterCrop(224),
                         T.ToTensor()]) # ToTensor() divides by 255
+        elif "ignore_input" == load_path:
+            self.transforms = T.Compose([T.ToTensor(),T.Resize(224)])
+            embedding_dim = 1024
+            embedding = IgnoreEnc(embedding_dim)
+        elif "pickle" in load_path:
+            # get vision transformer by loading original weights 🤪
+            embedding = torch.hub.load('facebookresearch/dino:main',
+                                       'dino_vits16')
+            print(f"Loading model from {load_path}")
+            embedding = pickle.load(open(load_path, 'rb'))
+            embedding.eval()
+            embedding_dim = embedding.embed_dim
+
+            arch_args = load_path.split("-")
+            if len(arch_args) == 2:
+                head = int(arch_args[1])
+                print(f"masking out all but head {head}")
+                # surgically remove some attention maps
+                state_dict = embedding.state_dict()
+                # zero out bias
+                new_bias = state_dict['blocks.11.attn.qkv.bias'].reshape((3, 6, -1))
+                new_bias[:,:head,:] = 0
+                new_bias[:,head+1:,:] = 0
+                state_dict['blocks.11.attn.qkv.bias'] = new_bias.reshape(-1)
+                # zero out weight
+                new_weight = state_dict['blocks.11.attn.qkv.weight'].reshape((3, 6, 64, 384))
+                new_weight[:,:head,:] = 0
+                new_weight[:,head+1:,:] = 0
+                state_dict['blocks.11.attn.qkv.weight'] = new_weight.reshape((-1,384))
+                embedding.load_state_dict(state_dict)
+
+            self.transforms = T.Compose([T.ToTensor(),
+                                         T.Resize(224),
+                                         T.Normalize((0.485, 0.456, 0.406),
+                                                     (0.229, 0.224, 0.225))])
         elif "dino" in load_path:
             embedding = torch.hub.load('facebookresearch/dino:main',
                                        'dino_vits16')
@@ -189,7 +234,7 @@ class StateEmbedding(gym.ObservationWrapper):
         ### INPUT SHOULD BE [0,255]
         if self.embedding is not None:
             inp = self.transforms(Image.fromarray(observation.astype(np.uint8))).reshape(-1, 3, 224, 224)
-            if "r3m" in self.load_path:
+            if "r3m" in self.load_path and "pickle" not in self.load_path:
                 ## R3M Expects input to be 0-255, preprocess makes 0-1
                 inp *= 255.0
             inp = inp.to(self.device)
@@ -213,7 +258,7 @@ class StateEmbedding(gym.ObservationWrapper):
         inp = []
         for o in obs:
             i = self.transforms(Image.fromarray(o.astype(np.uint8))).reshape(-1, 3, 224, 224)
-            if "r3m" in self.load_path:
+            if "r3m" in self.load_path and "pickle" not in self.load_path:
                 ## R3M Expects input to be 0-255, preprocess makes 0-1
                 i *= 255.0
             inp.append(i)

@@ -22,6 +22,17 @@ python r3meval/core/hydra_launcher.py hydra/launcher=local hydra/output=local \
     eval.eval=True env_kwargs.shift=bottom_left_white_rectangle \
     bc_kwargs.load_path=/iris/u/kayburns/new_arch/r3m/evaluation/outputs/BC_pretrained_rep/2022-09-28_23-47-08/r3m_repro/iterations/policy_2857.pickle # 52, 66 -> 24
 
+
+# python r3meval/core/hydra_launcher.py hydra/launcher=local hydra/output=local \
+#     env="kitchen_sdoor_open-v3" camera="left_cap2" pixel_based=true \
+#     embedding=dino num_demos=5 env_kwargs.load_path="/iris/u/kayburns/new_arch/r3m/evaluation/outputs/BC_pretrained_rep/2022-10-06_14-12-16/r3m_repro_all/iterations/embedding_999.pickle" \
+#     bc_kwargs.finetune=false proprio=9 job_name=eval_all seed=125 \
+#     eval.eval=True env_kwargs.shift=none \
+#     bc_kwargs.load_path="/iris/u/kayburns/new_arch/r3m/evaluation/outputs/BC_pretrained_rep/2022-10-06_14-12-16/r3m_repro_all/iterations/policy_999.pickle" \
+
+    # all finetuned
+    # bc_kwargs.load_path="/iris/u/kayburns/new_arch/r3m/evaluation/outputs/BC_pretrained_rep/2022-10-05_18-05-13/r3m_repro_all/iterations/policy_999.pickle" # 
+
     # head 2
     # bc_kwargs.load_path="/iris/u/kayburns/new_arch/r3m/evaluation/outputs/BC_pretrained_rep/2022-10-04_11-11-50/r3m_repro/iterations/policy_2857.pickle" # 42, 42
     # head 3
@@ -29,10 +40,3 @@ python r3meval/core/hydra_launcher.py hydra/launcher=local hydra/output=local \
     # bc_kwargs.load_path=/iris/u/kayburns/new_arch/r3m/evaluation/outputs/BC_pretrained_rep/2022-10-03_17-57-00/r3m_repro/iterations/policy_2857.pickle # 44
     # r3m
     # bc_kwargs.load_path="/iris/u/kayburns/new_arch/r3m/evaluation/outputs/BC_pretrained_rep/2022-10-04_11-22-39/r3m_repro/iterations/policy_2857.pickle"
-
-
-# head 2
-# head 3
-# load_path       :   "/iris/u/kayburns/new_arch/r3m/evaluation/outputs/BC_pretrained_rep/2022-09-28_23-47-08/r3m_repro/iterations/policy_999.pickle"
-
-
