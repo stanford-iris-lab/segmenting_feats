@@ -155,7 +155,7 @@ class StateEmbedding(gym.ObservationWrapper):
             self.transforms = T.Compose([T.ToTensor(),T.Resize(224)])
             embedding_dim = 1024
             embedding = IgnoreEnc(embedding_dim)
-        elif "pickle" in load_path:
+        elif "pickle" in load_path and embedding_name == 'dino':
             # get vision transformer by loading original weights 🤪
             embedding = torch.hub.load('facebookresearch/dino:main',
                                        'dino_vits16')
@@ -186,6 +186,14 @@ class StateEmbedding(gym.ObservationWrapper):
                                          T.Resize(224),
                                          T.Normalize((0.485, 0.456, 0.406),
                                                      (0.229, 0.224, 0.225))])
+        elif "pickle" in load_path and embedding_name == 'resnet50':
+            print(f"Loading model from {load_path}")
+            embedding = pickle.load(open(load_path, 'rb'))
+            embedding.eval()
+            embedding_dim = embedding.module.outdim
+            self.transforms = T.Compose([T.Resize(256),
+                        T.CenterCrop(224),
+                        T.ToTensor()]) # ToTensor() divides by 255
         elif "dino" in load_path:
             embedding = torch.hub.load('facebookresearch/dino:main',
                                        'dino_vits16')

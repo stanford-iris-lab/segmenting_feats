@@ -145,7 +145,7 @@ def bc_train_loop(job_data:dict) -> None:
                 # freeze all but last layer
                 if "dino" in job_data["embedding"]:
                     for name, param in e.env.embedding.named_parameters():
-                        if not ('blocks.11' in name or 'norm' in name):
+                        if not ('blocks.11' in name or 'norm.weight' == name or 'norm.bias' == name):
                             param.requires_grad = False
                 e.env.start_finetuning()
         agent.train(job_data['pixel_based'], suppress_fit_tqdm=True, step = last_step)
@@ -163,25 +163,25 @@ def bc_train_loop(job_data:dict) -> None:
             try:
                 ## Success computation and logging for Adroit and Kitchen
                 success_percentage = e.env.unwrapped.evaluate_success(paths)
-                for i, path in enumerate(paths):
-                    if (i < 10) and job_data['pixel_based']:
-                        vid = path['images']
-                        filename = f'./iterations/vid_{i}.gif'
-                        from moviepy.editor import ImageSequenceClip
-                        cl = ImageSequenceClip(vid, fps=20)
-                        cl.write_gif(filename, fps=20)
+                # for i, path in enumerate(paths):
+                #     if (i < 10) and job_data['pixel_based']:
+                #         vid = path['images']
+                #         filename = f'./iterations/vid_{i}.gif'
+                #         from moviepy.editor import ImageSequenceClip
+                #         cl = ImageSequenceClip(vid, fps=20)
+                #         cl.write_gif(filename, fps=20)
 
             except:
                 ## Success computation and logging for MetaWorld
                 sc = []
                 for i, path in enumerate(paths):
                     sc.append(path['env_infos']['success'][-1])
-                    if (i < 10) and job_data['pixel_based']:
-                        vid = path['images']
-                        filename = f'./iterations/vid_{i}.gif'
-                        from moviepy.editor import ImageSequenceClip
-                        cl = ImageSequenceClip(vid, fps=20)
-                        cl.write_gif(filename, fps=20)
+                    # if (i < 10) and job_data['pixel_based']:
+                    #     vid = path['images']
+                    #     filename = f'./iterations/vid_{i}.gif'
+                    #     from moviepy.editor import ImageSequenceClip
+                    #     cl = ImageSequenceClip(vid, fps=20)
+                    #     cl.write_gif(filename, fps=20)
                 success_percentage = np.mean(sc) * 100
             agent.logger.log_kv('eval_epoch', epoch)
             agent.logger.log_kv('eval_success', success_percentage)
@@ -261,22 +261,28 @@ def eval_loop(job_data:dict) -> None:
                 cl = ImageSequenceClip(vid, fps=20)
                 cl.write_gif(filename, fps=20)
 
-                for j in (3, 2):
-                    heatmap_vid = place_attention_heatmap_over_images(vid, e.env.embedding, head=j)
-                    filename = f'./iterations/heatmap_vid_{i}_{j}.gif'
-                    cl = ImageSequenceClip(heatmap_vid, fps=20)
-                    cl.write_gif(filename, fps=20)
+                # for j in range(6):
+                #     heatmap_vid = place_attention_heatmap_over_images(vid, e.env.embedding, head=j)
+                #     filename = f'./iterations/heatmap_vid_{i}_{j}.gif'
+                #     cl = ImageSequenceClip(heatmap_vid, fps=20)
+                #     cl.write_gif(filename, fps=20)
     except:
         ## Success computation and logging for MetaWorld
         sc = []
         for i, path in enumerate(paths):
             sc.append(path['env_infos']['success'][-1])
-            if (i < 10) and job_data['pixel_based']:
+            if (i < 3) and job_data['pixel_based']:
                 vid = path['images']
                 filename = f'./iterations/vid_{i}.gif'
                 from moviepy.editor import ImageSequenceClip
                 cl = ImageSequenceClip(vid, fps=20)
                 cl.write_gif(filename, fps=20)
+
+                for j in range(6):
+                    heatmap_vid = place_attention_heatmap_over_images(vid, e.env.embedding, head=j)
+                    filename = f'./iterations/heatmap_vid_{i}_{j}.gif'
+                    cl = ImageSequenceClip(heatmap_vid, fps=20)
+                    cl.write_gif(filename, fps=20)
         success_percentage = np.mean(sc) * 100
     agent.logger.log_kv('load_step', agent.steps)
     agent.logger.log_kv('zero_shot_success', success_percentage)

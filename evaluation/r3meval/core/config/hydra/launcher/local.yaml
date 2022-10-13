@@ -1,6 +1,6 @@
 # @package _global_
 hydra:
-    launcher:
+    launcher: 
         cpus_per_task: 20
         gpus_per_node: 1
         tasks_per_node: 1
@@ -8,4 +8,4 @@ hydra:
         mem_gb: 64
         name: ${hydra.job.name}
         _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.LocalLauncher
-        submitit_folder: ${hydra.sweep.dir}/.submitit/%j
+        submitit_folder: ${now:%Y-%m-%d}_${now:%H-%M-%S}/.submitit/%j

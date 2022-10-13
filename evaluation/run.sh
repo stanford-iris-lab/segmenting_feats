@@ -22,7 +22,6 @@ python r3meval/core/hydra_launcher.py hydra/launcher=local hydra/output=local \
     bc_kwargs.finetune=true proprio=9 job_name=r3m_repro_all seed=123
 
 # blind baseline
-# cd /iris/u/kayburns/new_arch/r3m/evaluation/
 # python r3meval/core/hydra_launcher.py hydra/launcher=local hydra/output=local \
 #     env="kitchen_sdoor_open-v3" camera="left_cap2" pixel_based=true \
 #     embedding=ignore_input num_demos=5 env_kwargs.load_path=ignore_input \
