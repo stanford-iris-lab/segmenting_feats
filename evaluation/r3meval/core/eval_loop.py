@@ -101,7 +101,7 @@ def eval_model_path(job_data, demo_paths, model_path, texture, init=False):
                             demo_paths=demo_paths, epochs=1, seed=job_data['seed'], pixel_based=job_data["pixel_based"],
                             model_path=model_path)
     if init:
-        agent.logger.init_wb(job_data, project='r3m_shift_eval')
+        agent.logger.init_wb(job_data, project='r3m_shift_eval_2')
 
     # perform evaluation rollouts every few epochs
     agent.policy.model.eval()
