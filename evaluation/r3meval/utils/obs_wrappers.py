@@ -151,6 +151,24 @@ class StateEmbedding(gym.ObservationWrapper):
             self.transforms = T.Compose([T.Resize(256),
                         T.CenterCrop(224),
                         T.ToTensor()]) # ToTensor() divides by 255
+        elif "mvp" == load_path:
+            import mvp
+            embedding = mvp.load("vitb-mae-egosoup")
+            embedding.eval()
+            embedding_dim = embedding.embed_dim
+            self.transforms = T.Compose([T.Resize(256),
+                            T.CenterCrop(224),
+                            T.ToTensor(), # ToTensor() divides by 255
+                            T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
+        elif "pickle" in load_path and embedding_name == 'mvp':
+            import mvp
+            embedding = pickle.load(open(load_path, 'rb')).cuda()
+            embedding.eval()
+            embedding_dim = embedding.embed_dim
+            self.transforms = T.Compose([T.Resize(256),
+                            T.CenterCrop(224),
+                            T.ToTensor(), # ToTensor() divides by 255
+                            T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
         elif "ignore_input" == load_path:
             self.transforms = T.Compose([T.ToTensor(),T.Resize(224)])
             embedding_dim = 1024
@@ -242,7 +260,7 @@ class StateEmbedding(gym.ObservationWrapper):
         ### INPUT SHOULD BE [0,255]
         if self.embedding is not None:
             inp = self.transforms(Image.fromarray(observation.astype(np.uint8))).reshape(-1, 3, 224, 224)
-            if "r3m" in self.load_path and "pickle" not in self.load_path:
+            if not 'VisionTransformer' in type(self.embedding).__name__: # "r3m" in self.load_path and "pickle" not in self.load_path:
                 ## R3M Expects input to be 0-255, preprocess makes 0-1
                 inp *= 255.0
             inp = inp.to(self.device)
@@ -266,7 +284,7 @@ class StateEmbedding(gym.ObservationWrapper):
         inp = []
         for o in obs:
             i = self.transforms(Image.fromarray(o.astype(np.uint8))).reshape(-1, 3, 224, 224)
-            if "r3m" in self.load_path and "pickle" not in self.load_path:
+            if not 'VisionTransformer' in type(self.embedding).__name__: # and "pickle" not in self.load_path: # not 'VisionTransformer' in type(self.embedding).__name__: 
                 ## R3M Expects input to be 0-255, preprocess makes 0-1
                 i *= 255.0
             inp.append(i)

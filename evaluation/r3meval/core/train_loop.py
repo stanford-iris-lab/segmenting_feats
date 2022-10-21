@@ -185,15 +185,16 @@ def bc_train_loop(job_data:dict) -> None:
                 success_percentage = np.mean(sc) * 100
             agent.logger.log_kv('eval_epoch', epoch)
             agent.logger.log_kv('eval_success', success_percentage)
-            
-            # Tracking best success over training
-            max_success = max(max_success, success_percentage)
 
             # save policy and logging
-            pickle.dump(agent.policy, open('./iterations/policy_%i.pickle' % epoch, 'wb'))
-            pickle.dump(e.env.embedding, open('./iterations/embedding_%i.pickle' % epoch, 'wb'))
+            if success_percentage > max_success:
+                pickle.dump(agent.policy, open('./iterations/policy_best.pickle', 'wb'))
+                pickle.dump(e.env.embedding, open('./iterations/embedding_best.pickle', 'wb'))
             agent.logger.save_log('./logs/')
             agent.logger.save_wb(step=agent.steps)
+
+            # Tracking best success over training
+            max_success = max(max_success, success_percentage)
 
             print_data = sorted(filter(lambda v: np.asarray(v[1]).size == 1,
                                         agent.logger.get_current_log().items()))

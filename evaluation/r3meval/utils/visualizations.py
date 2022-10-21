@@ -9,7 +9,7 @@ from torchvision import transforms as T
 
 import mvp
 
-def place_attention_heatmap_over_images(images, vision_model, head=1):
+def place_attention_heatmap_over_images(images, vision_model, model_type, head=1):
 
     H, W = 224, 224
     patch_size = 16
@@ -32,8 +32,12 @@ def place_attention_heatmap_over_images(images, vision_model, head=1):
         torch_image = transforms(image)
 
         # grab the output attention map at the desired attention head
-        # attn = vision_model.forward_attention(torch_image.unsqueeze(0), layer=11)
-        attn = vision_model.get_last_selfattention(torch_image.unsqueeze(0).to('cuda'))
+        if model_type == 'mvp':
+            attn = vision_model.forward_attention(torch_image.unsqueeze(0).to('cuda'), layer=11)
+        elif model_type == 'dino':
+            attn = vision_model.get_last_selfattention(torch_image.unsqueeze(0).to('cuda'))
+        else:
+            raise ValueError(f'Visualization with {model_type} not supported') 
         attn_map = attn[0,head,0,1:].reshape(1, 1, new_H, new_W) # B, C, H, W
 
         # interpolate smoothly to create a heatmap

@@ -63,4 +63,4 @@ job_name          :   'R3M'
 
 hydra:
     job:
-        name: BC_pretrained_rep
+        name: main_sweep_1

@@ -31,13 +31,13 @@ cd /iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/
 #     pixel_based=true embedding=resnet50 env_kwargs.load_path=r3m \
 #     bc_kwargs.finetune=true proprio=9 job_name=try_r3m
 
-for env in kitchen_knob1_on-v3 kitchen_light_on-v3 kitchen_sdoor_open-v3 kitchen_ldoor_open-v3 kitchen_micro_open-v3 kitchen_ldoor_open-v3
+for env in kitchen_micro_open-v3 # kitchen_knob1_on-v3 kitchen_light_on-v3 kitchen_sdoor_open-v3 kitchen_ldoor_open-v3 kitchen_micro_open-v3
 do
-    for num_demos in 5 10 25
+    for num_demos in 10 # 5 10 25
     do
-        for camera in default left_cap2 right_cap2
+        for camera in left_cap2 # default left_cap2 right_cap2
         do
-            for seed in 123 124 125
+            for seed in 124 125 # 123 124 125
             do
                 python hydra_launcher.py hydra/launcher=local hydra/output=local \
                     pixel_based=true embedding=dino env_kwargs.load_path=dino \

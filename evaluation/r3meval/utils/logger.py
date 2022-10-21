@@ -15,9 +15,9 @@ class DataLog:
         self.log = {}
         self.max_len = 0
 
-    def init_wb(self, cfg):
+    def init_wb(self, cfg, project='r3mbc_sweep_full'):
         print(cfg.keys())
-        wandb.init(project='r3mbc_sweep_2', entity='burntkayl', name=cfg.job_name)
+        wandb.init(project=project, entity='burntkayl', name=cfg.job_name, reinit=True)
         fullcfg = {**cfg, **cfg.env_kwargs, **cfg.bc_kwargs}
         wandb.config.update(fullcfg)
 
