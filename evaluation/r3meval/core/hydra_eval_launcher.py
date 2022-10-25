@@ -66,7 +66,7 @@ def configure_jobs(job_data:dict) -> None:
         job_data.seed = old_job_data.seed
         job_data.proprio = old_job_data.proprio
         job_data.bc_kwargs.load_path = policy_path
-        # job_data.bc_kwargs.finetune = old_job_data.bc_kwargs.finetune
+        job_data.bc_kwargs.finetune = old_job_data.bc_kwargs.finetune
         job_data.env_kwargs.load_path = embedding_path
 
         with open('job_config.json', 'w') as fp:
