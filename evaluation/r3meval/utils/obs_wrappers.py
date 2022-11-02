@@ -129,6 +129,7 @@ class StateEmbedding(gym.ObservationWrapper):
         self.proprio = proprio
         self.load_path = load_path
         self.start_finetune = False
+        self.embedding_name = embedding_name
         if load_path == "clip":
             import clip
             model, cliptransforms = clip.load("RN50", device="cuda")
@@ -212,7 +213,7 @@ class StateEmbedding(gym.ObservationWrapper):
             self.transforms = T.Compose([T.Resize(256),
                         T.CenterCrop(224),
                         T.ToTensor()]) # ToTensor() divides by 255
-        elif "dino" in load_path:
+        elif "dino" in embedding_name:
             embedding = torch.hub.load('facebookresearch/dino:main',
                                        'dino_vits16')
             embedding.eval()
@@ -234,6 +235,17 @@ class StateEmbedding(gym.ObservationWrapper):
                 new_weight[:,head+1:,:] = 0
                 state_dict['blocks.11.attn.qkv.weight'] = new_weight.reshape((-1,384))
                 embedding.load_state_dict(state_dict)
+
+            self.transforms = T.Compose([T.ToTensor(),
+                                         T.Resize(224),
+                                         T.Normalize((0.485, 0.456, 0.406),
+                                                     (0.229, 0.224, 0.225))])
+        elif embedding_name=='resnet50_dino' and load_path=='dino':
+            embedding = torch.hub.load('facebookresearch/dino:main',
+                                       'dino_resnet50')
+            
+            embedding.eval()
+            embedding_dim = embedding.embed_dim
 
             self.transforms = T.Compose([T.ToTensor(),
                                          T.Resize(224),
@@ -284,8 +296,9 @@ class StateEmbedding(gym.ObservationWrapper):
         inp = []
         for o in obs:
             i = self.transforms(Image.fromarray(o.astype(np.uint8))).reshape(-1, 3, 224, 224)
-            if not 'VisionTransformer' in type(self.embedding).__name__: # and "pickle" not in self.load_path: # not 'VisionTransformer' in type(self.embedding).__name__: 
+            if self.embedding_name == 'resnet50': # mapping resnet50 to R3M # if not 'VisionTransformer' in type(self.embedding).__name__: # and "pickle" not in self.load_path: # not 'VisionTransformer' in type(self.embedding).__name__: 
                 ## R3M Expects input to be 0-255, preprocess makes 0-1
+                print("shifting input to 0-255 (should only happen for R3M)")
                 i *= 255.0
             inp.append(i)
         inp = torch.cat(inp)

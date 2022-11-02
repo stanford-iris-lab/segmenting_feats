@@ -36,11 +36,13 @@ def configure_jobs(job_data:dict) -> None:
 
     run_paths = os.listdir(sweep_dir)
     # run_paths = [
-    #         #  '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/2022-10-16_17-27-29/', # 123, left_cap2, dino ft
-    #          '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/2022-10-17_00-46-40/', # 123, left_cap2, r3m ft
-    #         #  '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/2022-10-16_09-58-24/', # 123, left_cap2, r3m
-    #         #  '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/BC_pretrained_rep/2022-10-10_15-30-43/', # dino
-    #             # '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/2022-10-19_11-20-04/', # mvp
+    #             '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/2022-10-16_17-27-29/', # 123, left_cap2, dino ft
+    #             '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/2022-10-17_00-46-40/', # 123, left_cap2, r3m ft
+    #             '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/2022-10-16_09-58-24/', # 123, left_cap2, r3m
+    #             '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/BC_pretrained_rep/2022-10-10_15-30-43/', # dino
+    #             '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/2022-10-19_11-20-04/', # mvp
+    #             '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/2022-10-17_06-21-43/', # mvp
+    #             '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/2022-10-19_10-30-13/', # mvp
     #         ]
 
     for run_path in run_paths:
