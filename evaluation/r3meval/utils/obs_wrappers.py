@@ -213,7 +213,7 @@ class StateEmbedding(gym.ObservationWrapper):
             self.transforms = T.Compose([T.Resize(256),
                         T.CenterCrop(224),
                         T.ToTensor()]) # ToTensor() divides by 255
-        elif "dino" in embedding_name:
+        elif "dino" == embedding_name:
             embedding = torch.hub.load('facebookresearch/dino:main',
                                        'dino_vits16')
             embedding.eval()
@@ -245,12 +245,27 @@ class StateEmbedding(gym.ObservationWrapper):
                                        'dino_resnet50')
             
             embedding.eval()
+            embedding_dim = 2048
+
+            self.transforms = T.Compose([T.Resize(256, interpolation=3),
+                                         T.CenterCrop(224),
+                                         T.ToTensor(),
+                                         T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),])
+        elif embedding_name=='resnet50_dino' and 'pickle' in load_path:
+            try:
+                print(f"Loading model from {load_path}, resnet50_dino")
+                embedding = pickle.load(open(load_path, 'rb'))
+            except:
+                # /iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/2022-11-01_16-28-13/
+                import pdb; pdb.set_trace()
+            
+            embedding.eval()
             embedding_dim = embedding.embed_dim
 
-            self.transforms = T.Compose([T.ToTensor(),
-                                         T.Resize(224),
-                                         T.Normalize((0.485, 0.456, 0.406),
-                                                     (0.229, 0.224, 0.225))])
+            self.transforms = T.Compose([T.Resize(256, interpolation=3),
+                                         T.CenterCrop(224),
+                                         T.ToTensor(),
+                                         T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),])
         else:
             raise NameError("Invalid Model")
         embedding.eval()

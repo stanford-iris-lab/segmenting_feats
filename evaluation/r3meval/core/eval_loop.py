@@ -97,7 +97,10 @@ def configure_cluster_GPUs(gpu_logical_id: int) -> int:
 
 def eval_model_path(job_data, demo_paths, model_path, init=False):
     env_kwargs = job_data['env_kwargs']
-    shift = model_path.split('_')[-1].split('.')[0]
+    if model_path:
+        shift = model_path.split('_')[-1].split('.')[0]
+    else:
+        shift = ''
     e, agent = make_bc_agent(env_kwargs=env_kwargs, bc_kwargs=job_data['bc_kwargs'], 
                             demo_paths=demo_paths, epochs=1, seed=job_data['seed'], pixel_based=job_data["pixel_based"],
                             model_path=model_path)
@@ -189,11 +192,11 @@ def eval_loop(job_data:dict) -> None:
     if os.path.isdir('iterations') == False: os.mkdir('iterations')
     if os.path.isdir('logs') == False: os.mkdir('logs')
 
-    ## Creates agent and environment
+    # Creates agent and environment
     model_paths = None
     eval_model_path(job_data, demo_paths, model_path=None, init=True)
 
-    distractors = ['']
+    distractors = ['cracker_box', 'medium', 'hard']
     for distractor in distractors:
         model_path = f'/iris/u/kayburns/packages/mj_envs/mj_envs/envs/relay_kitchen/assets/franka_kitchen_distractor_{distractor}.xml'
         eval_model_path(job_data, demo_paths, model_path, init=False)

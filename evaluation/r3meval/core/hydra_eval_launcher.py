@@ -15,9 +15,25 @@ cwd = os.getcwd()
 sweep_dir = '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/'
 
 def is_target_task(job_data):
+    # envs
     slide_door = job_data.env == 'kitchen_sdoor_open-v3'
+    hinge_door = job_data.env == 'kitchen_ldoor_open-v3'
+    knob = job_data.env == 'kitchen_knob1_on-v3'
+    light = job_data.env == 'kitchen_light_on-v3'
+    micro = job_data.env == 'kitchen_micro_open-v3'
+
+    # cameras
     left_cap = job_data.camera == 'left_cap2'
-    return slide_door
+
+    # embeddings
+    resnet50_dino = job_data.embedding == 'resnet50_dino'
+    resnet50 = job_data.embedding == 'resnet50'
+    resnet50_ft_false = resnet50 and not job_data.bc_kwargs.finetune
+    dino_mask = job_data.env_kwargs.load_path == 'dino-3'
+    mvp = job_data.embedding == 'mvp'
+    a_bad_emb = dino_mask or resnet50_dino or resnet50_ft_false or mvp
+
+    return not a_bad_emb and slide_door
 
 # ===============================================================================
 # Process Inputs and configure job
@@ -59,6 +75,19 @@ def configure_jobs(job_data:dict) -> None:
 
         if not is_target_task(old_job_data):
             continue
+
+        if not os.path.isfile(policy_path):
+            print(f'No weights for ' \
+                  f'{old_job_data.env}, ' \
+                  f'{old_job_data.bc_kwargs.finetune}, ' \
+                  f'{old_job_data.num_demos}, ' \
+                  f'{old_job_data.seed}, ' \
+                  f'{old_job_data.env_kwargs.load_path}, ' \
+                  f'{os.path.join(sweep_dir, run_path)}, ' \
+                  f'{old_job_data.camera}')
+            import pdb; pdb.set_trace()
+            continue
+
         
         job_data.env_kwargs = old_job_data.env_kwargs
         job_data.embedding = old_job_data.embedding

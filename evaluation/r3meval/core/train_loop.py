@@ -187,7 +187,7 @@ def bc_train_loop(job_data:dict) -> None:
             agent.logger.log_kv('eval_success', success_percentage)
 
             # save policy and logging
-            if success_percentage > max_success:
+            if success_percentage >= max_success:
                 pickle.dump(agent.policy, open('./iterations/policy_best.pickle', 'wb'))
                 pickle.dump(e.env.embedding, open('./iterations/embedding_best.pickle', 'wb'))
             agent.logger.save_log('./logs/')

@@ -5,6 +5,7 @@
 #SBATCH --exclude=iris4,iris2,iris-hp-z8
 #SBATCH --job-name="fancy new architecture"
 #SBATCH --time=4-0:0
+#SBATCH --account=iris
 
 source /sailhome/kayburns/.bashrc
 conda activate py3.8_torch1.10.1
