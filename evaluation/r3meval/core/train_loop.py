@@ -143,7 +143,7 @@ def bc_train_loop(job_data:dict) -> None:
             if last_step > (job_data['steps'] / 4.0):
                 e.env.embedding.train()
                 # freeze all but last layer
-                if "dino" == job_data["embedding"]:
+                if job_data.ft_only_last_layer:
                     for name, param in e.env.embedding.named_parameters():
                         if not ('blocks.11' in name or 'norm.weight' == name or 'norm.bias' == name):
                             param.requires_grad = False

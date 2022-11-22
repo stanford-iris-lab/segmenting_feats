@@ -22,6 +22,8 @@ num_cpu           :   1                       # for rolling out paths when evalu
 num_demos         :   200                     # path to demo file auto-inferred from other inputs
 proprio           :   0
 
+ft_only_last_layer:   false
+
 # environment related kwargs
 env_kwargs:
     env_name      :   ${env}                

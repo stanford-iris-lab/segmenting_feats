@@ -24,16 +24,35 @@ def is_target_task(job_data):
 
     # cameras
     left_cap = job_data.camera == 'left_cap2'
+    right_cap = job_data.camera == 'right_cap2'
+    default = job_data.camera == 'default'
 
     # embeddings
     resnet50_dino = job_data.embedding == 'resnet50_dino'
     resnet50 = job_data.embedding == 'resnet50'
     resnet50_ft_false = resnet50 and not job_data.bc_kwargs.finetune
+    resnet50_ft_true = resnet50 and job_data.bc_kwargs.finetune
     dino_mask = job_data.env_kwargs.load_path == 'dino-3'
+    dino = job_data.embedding == 'dino'
     mvp = job_data.embedding == 'mvp'
     a_bad_emb = dino_mask or resnet50_dino or resnet50_ft_false or mvp
+    dino_3 = job_data.env_kwargs.load_path == 'dino-3'
+    dino_5 = job_data.embedding == 'dino-5'
+    dino_ft_false = dino and not job_data.bc_kwargs.finetune
+    dino_ft_true = dino and job_data.bc_kwargs.finetune
 
-    return not a_bad_emb and slide_door
+    # num_demos
+    five_demos = job_data.num_demos == 5
+    ten_demos = job_data.num_demos == 10
+    twenty_five_demos = job_data.num_demos == 25
+
+    # seeds
+    seed_123 = job_data.seed == 123
+    seed_124 = job_data.seed == 124
+    seed_125 = job_data.seed == 125
+
+    # return dino_ft_false and twenty_five_demos and knob
+    return ('ft_only_last_layer' in job_data) and twenty_five_demos
 
 # ===============================================================================
 # Process Inputs and configure job

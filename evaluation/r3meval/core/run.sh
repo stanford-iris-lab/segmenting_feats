@@ -22,6 +22,7 @@ do
                 python hydra_launcher.py hydra/launcher=local hydra/output=local \
                     pixel_based=true embedding=resnet50_dino env_kwargs.load_path=dino \
                     bc_kwargs.finetune=true proprio=9 job_name=try_r3m \
+                    ft_only_last_layer=false \
                     seed=$seed num_demos=$num_demos env=$env camera=$camera
             done
         done

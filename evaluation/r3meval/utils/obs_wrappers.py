@@ -174,7 +174,7 @@ class StateEmbedding(gym.ObservationWrapper):
             self.transforms = T.Compose([T.ToTensor(),T.Resize(224)])
             embedding_dim = 1024
             embedding = IgnoreEnc(embedding_dim)
-        elif "pickle" in load_path and embedding_name == 'dino':
+        elif "pickle" in load_path and 'dino' in embedding_name and embedding_name != 'resnet50_dino': # TODO
             # get vision transformer by loading original weights 🤪
             embedding = torch.hub.load('facebookresearch/dino:main',
                                        'dino_vits16')
@@ -183,21 +183,21 @@ class StateEmbedding(gym.ObservationWrapper):
             embedding.eval()
             embedding_dim = embedding.embed_dim
 
-            arch_args = load_path.split("-")
-            if len(arch_args) == 2:
-                head = int(arch_args[1])
-                print(f"masking out all but head {head}")
-                # surgically remove some attention maps
+            arch_args = embedding_name.split("-")
+            if len(arch_args) > 1:
                 state_dict = embedding.state_dict()
-                # zero out bias
                 new_bias = state_dict['blocks.11.attn.qkv.bias'].reshape((3, 6, -1))
-                new_bias[:,:head,:] = 0
-                new_bias[:,head+1:,:] = 0
-                state_dict['blocks.11.attn.qkv.bias'] = new_bias.reshape(-1)
-                # zero out weight
                 new_weight = state_dict['blocks.11.attn.qkv.weight'].reshape((3, 6, 64, 384))
-                new_weight[:,:head,:] = 0
-                new_weight[:,head+1:,:] = 0
+                unmasked_heads = [int(um_head) for um_head in arch_args[1:]]
+                for head in range(6):
+                    if head not in unmasked_heads:
+                        print(f"masking out {head}")
+                        # surgically remove some attention maps
+                        # zero out bias
+                        new_bias[:,head,:] = 0
+                        # zero out weight
+                        new_weight[:,head,:] = 0
+                state_dict['blocks.11.attn.qkv.bias'] = new_bias.reshape(-1)
                 state_dict['blocks.11.attn.qkv.weight'] = new_weight.reshape((-1,384))
                 embedding.load_state_dict(state_dict)
 
@@ -213,26 +213,27 @@ class StateEmbedding(gym.ObservationWrapper):
             self.transforms = T.Compose([T.Resize(256),
                         T.CenterCrop(224),
                         T.ToTensor()]) # ToTensor() divides by 255
-        elif "dino" == embedding_name:
+        elif "dino" in embedding_name and embedding_name != 'resnet50_dino':
             embedding = torch.hub.load('facebookresearch/dino:main',
                                        'dino_vits16')
             embedding.eval()
             embedding_dim = embedding.embed_dim
 
-            arch_args = load_path.split("-")
+            arch_args = embedding_name.split("-")
             if len(arch_args) > 1:
-                head = int(arch_args[1])
-                # surgically remove some attention maps
                 state_dict = embedding.state_dict()
-                # zero out bias
                 new_bias = state_dict['blocks.11.attn.qkv.bias'].reshape((3, 6, -1))
-                new_bias[:,:head,:] = 0
-                new_bias[:,head+1:,:] = 0
-                state_dict['blocks.11.attn.qkv.bias'] = new_bias.reshape(-1)
-                # zero out weight
                 new_weight = state_dict['blocks.11.attn.qkv.weight'].reshape((3, 6, 64, 384))
-                new_weight[:,:head,:] = 0
-                new_weight[:,head+1:,:] = 0
+                unmasked_heads = [int(um_head) for um_head in arch_args[1:]]
+                for head in range(6):
+                    if head not in unmasked_heads:
+                        print(f"masking out {head}")
+                        # surgically remove some attention maps
+                        # zero out bias
+                        new_bias[:,head,:] = 0
+                        # zero out weight
+                        new_weight[:,head,:] = 0
+                state_dict['blocks.11.attn.qkv.bias'] = new_bias.reshape(-1)
                 state_dict['blocks.11.attn.qkv.weight'] = new_weight.reshape((-1,384))
                 embedding.load_state_dict(state_dict)
 
