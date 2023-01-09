@@ -62,7 +62,8 @@ eval:
 
 # general outputs
 job_name          :   'R3M'
+project           :   'main_sweep_noft'
 
 hydra:
     job:
-        name: main_sweep_1
+        name: main_sweep_noft

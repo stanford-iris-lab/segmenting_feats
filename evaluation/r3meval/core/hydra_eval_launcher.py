@@ -12,7 +12,8 @@ from eval_loop import eval_loop
 
 cwd = os.getcwd()
 
-sweep_dir = '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/'
+sweep_dir = '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_noft/'
+# sweep_dir = '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/'
 
 def is_target_task(job_data):
     # envs
@@ -21,6 +22,7 @@ def is_target_task(job_data):
     knob = job_data.env == 'kitchen_knob1_on-v3'
     light = job_data.env == 'kitchen_light_on-v3'
     micro = job_data.env == 'kitchen_micro_open-v3'
+    assembly = job_data.env == 'assembly-v2-goal-observable'
 
     # cameras
     left_cap = job_data.camera == 'left_cap2'
@@ -29,17 +31,27 @@ def is_target_task(job_data):
 
     # embeddings
     resnet50_dino = job_data.embedding == 'resnet50_dino'
+    ensemble = "ensemble" in job_data.embedding
     resnet50 = job_data.embedding == 'resnet50'
     resnet50_ft_false = resnet50 and not job_data.bc_kwargs.finetune
+    resnet50_insup = 'resnet50_insup' == job_data.embedding
     resnet50_ft_true = resnet50 and job_data.bc_kwargs.finetune
     dino_mask = job_data.env_kwargs.load_path == 'dino-3'
     dino = job_data.embedding == 'dino'
     mvp = job_data.embedding == 'mvp'
     a_bad_emb = dino_mask or resnet50_dino or resnet50_ft_false or mvp
-    dino_3 = job_data.env_kwargs.load_path == 'dino-3'
-    dino_5 = job_data.embedding == 'dino-5'
+    dino_3 = job_data.embedding == 'dino-3' and not job_data.bc_kwargs.finetune
+    dino_5 = job_data.embedding == 'dino-5' and not job_data.bc_kwargs.finetune
+    dino_0 = job_data.embedding == 'dino-0'
+    dino_01234 = job_data.embedding == 'dino-0-1-2-3-4'
     dino_ft_false = dino and not job_data.bc_kwargs.finetune
     dino_ft_true = dino and job_data.bc_kwargs.finetune
+    deit = 'deit' in job_data.embedding
+    deit_sup = 'deit_s_insup' == job_data.embedding
+    deit_s = 'deit_s' == job_data.embedding
+    deit_shape = 'deit_s_sin_dist_shape_feat' == job_data.embedding
+    deit_cls = 'deit_s_sin_dist_cls_feat' == job_data.embedding
+    in_mvp = job_data.embedding == 'mvp' and 'ft_only_last_layer' in job_data and job_data.ft_only_last_layer
 
     # num_demos
     five_demos = job_data.num_demos == 5
@@ -51,8 +63,7 @@ def is_target_task(job_data):
     seed_124 = job_data.seed == 124
     seed_125 = job_data.seed == 125
 
-    # return dino_ft_false and twenty_five_demos and knob
-    return ('ft_only_last_layer' in job_data) and twenty_five_demos
+    return resnet50 and assembly and not job_data.bc_kwargs.finetune
 
 # ===============================================================================
 # Process Inputs and configure job
@@ -104,7 +115,7 @@ def configure_jobs(job_data:dict) -> None:
                   f'{old_job_data.env_kwargs.load_path}, ' \
                   f'{os.path.join(sweep_dir, run_path)}, ' \
                   f'{old_job_data.camera}')
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
             continue
 
         
@@ -117,7 +128,10 @@ def configure_jobs(job_data:dict) -> None:
         job_data.proprio = old_job_data.proprio
         job_data.bc_kwargs.load_path = policy_path
         job_data.bc_kwargs.finetune = old_job_data.bc_kwargs.finetune
-        job_data.env_kwargs.load_path = embedding_path
+        if job_data.bc_kwargs.finetune:
+            job_data.env_kwargs.load_path = embedding_path
+        else:
+            job_data.env_kwargs.load_path = old_job_data.env_kwargs.load_path
 
         with open('job_config.json', 'w') as fp:
             OmegaConf.save(config=job_data, f=fp.name)

@@ -31,7 +31,7 @@ def env_constructor(env_name, device='cuda', image_width=256, image_height=256,
     if pixel_based:
         ## Need to do some special environment config for the metaworld environments
         if "v2" in env_name:
-            e  = ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE[env_name]()
+            e  = ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE[env_name](model_name=model_path)
             e._freeze_rand_vec = False
             e.spec = namedtuple('spec', ['id', 'max_episode_steps'])
             e.spec.id = env_name
@@ -105,7 +105,7 @@ def eval_model_path(job_data, demo_paths, model_path, init=False):
                             demo_paths=demo_paths, epochs=1, seed=job_data['seed'], pixel_based=job_data["pixel_based"],
                             model_path=model_path)
     if init:
-        agent.logger.init_wb(job_data, project='r3m_shift_eval_2')
+        agent.logger.init_wb(job_data, project='r3m_shift_eval_noft_final')
 
     # perform evaluation rollouts every few epochs
     agent.policy.model.eval()
@@ -127,12 +127,12 @@ def eval_model_path(job_data, demo_paths, model_path, init=False):
                 cl = ImageSequenceClip(vid, fps=20)
                 cl.write_gif(filename, fps=20)
 
-                if job_data.embedding == 'dino' or job_data.embedding == 'mvp':
-                    for j in range(6):
-                        heatmap_vid = place_attention_heatmap_over_images(vid, e.env.embedding, job_data.embedding, head=j)
-                        filename = f'./iterations/heatmap_vid_{i}_{j}_{shift}.gif'
-                        cl = ImageSequenceClip(heatmap_vid, fps=20)
-                        cl.write_gif(filename, fps=20)
+                # if job_data.embedding == 'dino' or job_data.embedding == 'mvp':
+                #     for j in range(6):
+                #         heatmap_vid = place_attention_heatmap_over_images(vid, e.env.embedding, job_data.embedding, head=j)
+                #         filename = f'./iterations/heatmap_vid_{i}_{j}_{shift}.gif'
+                #         cl = ImageSequenceClip(heatmap_vid, fps=20)
+                #         cl.write_gif(filename, fps=20)
     except:
         ## Success computation and logging for MetaWorld
         sc = []
@@ -145,11 +145,11 @@ def eval_model_path(job_data, demo_paths, model_path, init=False):
                 cl = ImageSequenceClip(vid, fps=20)
                 cl.write_gif(filename, fps=20)
 
-                for j in range(6):
-                    heatmap_vid = place_attention_heatmap_over_images(vid, e.env.embedding, head=j)
-                    filename = f'./iterations/heatmap_vid_{i}_{j}.gif'
-                    cl = ImageSequenceClip(heatmap_vid, fps=20)
-                    cl.write_gif(filename, fps=20)
+                # for j in range(6):
+                #     heatmap_vid = place_attention_heatmap_over_images(vid, e.env.embedding, head=j)
+                #     filename = f'./iterations/heatmap_vid_{i}_{j}.gif'
+                #     cl = ImageSequenceClip(heatmap_vid, fps=20)
+                #     cl.write_gif(filename, fps=20)
         success_percentage = np.mean(sc) * 100
     if not model_path:
         agent.logger.log_kv('eval_success', success_percentage)
@@ -196,18 +196,24 @@ def eval_loop(job_data:dict) -> None:
     model_paths = None
     eval_model_path(job_data, demo_paths, model_path=None, init=True)
 
-    distractors = ['cracker_box', 'medium', 'hard']
-    for distractor in distractors:
-        model_path = f'/iris/u/kayburns/packages/mj_envs/mj_envs/envs/relay_kitchen/assets/franka_kitchen_distractor_{distractor}.xml'
-        eval_model_path(job_data, demo_paths, model_path, init=False)
-    textures = ['wood2', 'metal2', 'tile1']
-    for texture in textures:
-        model_path = f'/iris/u/kayburns/packages/mj_envs/mj_envs/envs/relay_kitchen/assets/franka_kitchen_slide_{texture}.xml'
-        eval_model_path(job_data, demo_paths, model_path, init=False)
-    lightings = ['cast_left', 'cast_right', 'brighter', 'darker']
-    for lighting in lightings:
-        model_path = f'/iris/u/kayburns/packages/mj_envs/mj_envs/envs/relay_kitchen/assets/franka_kitchen_{lighting}.xml'
-        eval_model_path(job_data, demo_paths, model_path, init=False)
+    if 'kitchen' in job_data.env:
+        distractors = ['cracker_box', 'medium', 'hard']
+        for distractor in distractors:
+            model_path = f'/iris/u/kayburns/packages/mj_envs/mj_envs/envs/relay_kitchen/assets/franka_kitchen_distractor_{distractor}.xml'
+            eval_model_path(job_data, demo_paths, model_path, init=False)
+        textures = ['wood2', 'metal2', 'tile1']
+        for texture in textures:
+            model_path = f'/iris/u/kayburns/packages/mj_envs/mj_envs/envs/relay_kitchen/assets/franka_kitchen_slide_{texture}.xml'
+            eval_model_path(job_data, demo_paths, model_path, init=False)
+        lightings = ['cast_left', 'cast_right', 'brighter', 'darker']
+        for lighting in lightings:
+            model_path = f'/iris/u/kayburns/packages/mj_envs/mj_envs/envs/relay_kitchen/assets/franka_kitchen_{lighting}.xml'
+            eval_model_path(job_data, demo_paths, model_path, init=False)
+    elif 'assembly' in job_data.env:
+        shifts = ['brighter', 'darker', 'cast_left', 'cast_right', 'distractor_medium', 'granitetable', 'metal1table']
+        for shift in shifts:
+            model_path = f'/iris/u/kayburns/packages/metaworld_r3m/metaworld/envs/assets_v2/sawyer_xyz/sawyer_assembly_peg_{shift}.xml'
+            eval_model_path(job_data, demo_paths, model_path, init=False)
 
         
 

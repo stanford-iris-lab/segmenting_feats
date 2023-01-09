@@ -7,6 +7,7 @@ import gym
 from gym.spaces.box import Box
 import omegaconf
 import torch
+from torch.utils import model_zoo
 import torch.nn as nn
 from torch.nn.modules.linear import Identity
 import torchvision.models as models
@@ -34,8 +35,8 @@ def _get_embedding(embedding_name='resnet34', load_path="", *args, **kwargs):
     elif embedding_name == 'resnet18':
         model = models.resnet18(pretrained=prt, progress=False)
         embedding_dim = 512
-    elif embedding_name == 'resnet50':
-        model = models.resnet50(pretrained=prt, progress=False)
+    elif 'resnet50' in embedding_name:
+        model = models.resnet50(pretrained=True, progress=False)
         embedding_dim = 2048
     else:
         print("Requested model not available currently")
@@ -137,13 +138,13 @@ class StateEmbedding(gym.ObservationWrapper):
             embedding.eval()
             embedding_dim = 1024
             self.transforms = cliptransforms
-        elif (load_path == "random") or (load_path == ""):
+        elif (load_path == "random") or (load_path == "") or (embedding_name == "resnet50_insup"):
                 embedding, embedding_dim = _get_embedding(embedding_name=embedding_name, load_path=load_path)
                 self.transforms = T.Compose([T.Resize(256),
                             T.CenterCrop(224),
                             T.ToTensor(), # ToTensor() divides by 255
                             T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
-        elif "r3m" == load_path:
+        elif "resnet50" == embedding_name:
             from r3m import load_r3m_reproduce
             rep = load_r3m_reproduce("r3m")
             rep.eval()
@@ -152,9 +153,65 @@ class StateEmbedding(gym.ObservationWrapper):
             self.transforms = T.Compose([T.Resize(256),
                         T.CenterCrop(224),
                         T.ToTensor()]) # ToTensor() divides by 255
-        elif "mvp" == load_path:
+        elif "deit_s" in embedding_name:
+            import vit_models
+            if embedding_name == "deit_s_sin_dist_cls_feat":
+                embedding = vit_models.dino_small_dist_cls_feat(patch_size=16, pretrained=False)
+                state_dict = torch.hub.load_state_dict_from_url(url="https://github.com/Muzammal-Naseer/Intriguing-Properties-of-Vision-Transformers/releases/download/v0/deit_s_sin_dist.pth")
+                msg = embedding.load_state_dict(state_dict["model"], strict=False)
+                print(msg)
+            elif embedding_name == "deit_s_sin_dist_shape_feat":
+                embedding = vit_models.dino_small_dist_shape_feat(patch_size=16, pretrained=False)
+                state_dict = torch.hub.load_state_dict_from_url(url="https://github.com/Muzammal-Naseer/Intriguing-Properties-of-Vision-Transformers/releases/download/v0/deit_s_sin_dist.pth")
+                msg = embedding.load_state_dict(state_dict["model"], strict=False)
+                print(msg)
+            elif embedding_name == "deit_s_sin":
+                embedding = vit_models.dino_small_feat(patch_size=16, pretrained=False)
+                state_dict = torch.hub.load_state_dict_from_url(url="https://github.com/Muzammal-Naseer/Intriguing-Properties-of-Vision-Transformers/releases/download/v0/deit_s_sin.pth")
+                msg = embedding.load_state_dict(state_dict["model"], strict=False)
+                print(msg)
+            elif embedding_name == "deit_s":
+                embedding = vit_models.dino_small_feat(patch_size=16, pretrained=True)
+            elif embedding_name == "deit_s_insup":
+                embedding = vit_models.dino_small_feat(patch_size=16, pretrained=False)
+                state_dict = torch.hub.load_state_dict_from_url(url="https://dl.fbaipublicfiles.com/deit/deit_small_patch16_224-cd65a155.pth")
+                msg = embedding.load_state_dict(state_dict["model"], strict=False)
+                print(msg)
+
+
+            embedding.eval()
+            embedding_dim = embedding.embed_dim
+            self.transforms = T.Compose([T.Resize((224, 224)),
+                            T.ToTensor(), # ToTensor() divides by 255
+                            T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
+
+        elif "resnet50_sin" == embedding_name:
+            embedding = models.resnet50(pretrained=False)
+            embedding = embedding.eval()
+            embedding_dim = 2048
+            checkpoint = model_zoo.load_url('https://bitbucket.org/robert_geirhos/texture-vs-shape-pretrained-models/raw/6f41d2e86fc60566f78de64ecff35cc61eb6436f/resnet50_train_60_epochs-c8e5653e.pth.tar')
+            model =  torch.nn.DataParallel(embedding)
+            # state dict is saved with DataParallel, this will change embedding weights
+            model.load_state_dict(checkpoint["state_dict"]) 
+            embedding.fc = Identity()
+            embedding = embedding.eval()
+            self.transforms = T.Compose([
+                            T.Resize(256),
+                            T.CenterCrop(224),
+                            T.ToTensor()])  
+
+        elif "mvp" == embedding_name and "mvp" == load_path:
             import mvp
             embedding = mvp.load("vitb-mae-egosoup")
+            embedding.eval()
+            embedding_dim = embedding.embed_dim
+            self.transforms = T.Compose([T.Resize(256),
+                            T.CenterCrop(224),
+                            T.ToTensor(), # ToTensor() divides by 255
+                            T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
+        elif "mvp" == embedding_name and "imagenet" == load_path:
+            import mvp
+            embedding = mvp.load("vits-sup-in")
             embedding.eval()
             embedding_dim = embedding.embed_dim
             self.transforms = T.Compose([T.Resize(256),
@@ -205,19 +262,26 @@ class StateEmbedding(gym.ObservationWrapper):
                                          T.Resize(224),
                                          T.Normalize((0.485, 0.456, 0.406),
                                                      (0.229, 0.224, 0.225))])
-        elif "pickle" in load_path and embedding_name == 'resnet50':
-            print(f"Loading model from {load_path}")
-            embedding = pickle.load(open(load_path, 'rb'))
-            embedding.eval()
-            embedding_dim = embedding.module.outdim
-            self.transforms = T.Compose([T.Resize(256),
-                        T.CenterCrop(224),
-                        T.ToTensor()]) # ToTensor() divides by 255
+        # elif "pickle" in load_path and embedding_name == 'resnet50':
+        #     print(f"Loading model from {load_path}")
+        #     embedding = pickle.load(open(load_path, 'rb'))
+        #     embedding.eval()
+        #     embedding_dim = embedding.module.outdim
+        #     self.transforms = T.Compose([T.Resize(256),
+        #                 T.CenterCrop(224),
+        #                 T.ToTensor()]) # ToTensor() divides by 255
         elif "dino" in embedding_name and embedding_name != 'resnet50_dino':
             embedding = torch.hub.load('facebookresearch/dino:main',
                                        'dino_vits16')
             embedding.eval()
             embedding_dim = embedding.embed_dim
+            if embedding_name == "dino_ensemble":
+                num_heads = 6
+                ensemble_weights = torch.FloatTensor(num_heads) # WARNING: Variable not added to module's parameter list
+                ensemble_weights[:] = embedding.blocks[-1].attn.scale # TODO: add noise, should not suffer from symmetry tho
+                ensemble_weights = ensemble_weights.reshape((1, -1, 1, 1)).cuda() # reshape to match attn to avoid broadcasting in Attention
+                embedding.blocks[-1].attn.scale = ensemble_weights
+                ensemble_weights.requires_grad = True
 
             arch_args = embedding_name.split("-")
             if len(arch_args) > 1:
@@ -241,7 +305,7 @@ class StateEmbedding(gym.ObservationWrapper):
                                          T.Resize(224),
                                          T.Normalize((0.485, 0.456, 0.406),
                                                      (0.229, 0.224, 0.225))])
-        elif embedding_name=='resnet50_dino' and load_path=='dino':
+        elif embedding_name=='resnet50_dino':
             embedding = torch.hub.load('facebookresearch/dino:main',
                                        'dino_resnet50')
             
@@ -289,6 +353,7 @@ class StateEmbedding(gym.ObservationWrapper):
         if self.embedding is not None:
             inp = self.transforms(Image.fromarray(observation.astype(np.uint8))).reshape(-1, 3, 224, 224)
             if not 'VisionTransformer' in type(self.embedding).__name__: # "r3m" in self.load_path and "pickle" not in self.load_path:
+                print("shifting input to 0-255 (should only happen for R3M)")
                 ## R3M Expects input to be 0-255, preprocess makes 0-1
                 inp *= 255.0
             inp = inp.to(self.device)
@@ -312,7 +377,7 @@ class StateEmbedding(gym.ObservationWrapper):
         inp = []
         for o in obs:
             i = self.transforms(Image.fromarray(o.astype(np.uint8))).reshape(-1, 3, 224, 224)
-            if self.embedding_name == 'resnet50': # mapping resnet50 to R3M # if not 'VisionTransformer' in type(self.embedding).__name__: # and "pickle" not in self.load_path: # not 'VisionTransformer' in type(self.embedding).__name__: 
+            if (self.embedding_name == 'resnet50') or (self.embedding_name == 'resnet50_insup') or (self.embedding_name == 'resnet50_dino'): # mapping resnet50 to R3M # if not 'VisionTransformer' in type(self.embedding).__name__: # and "pickle" not in self.load_path: # not 'VisionTransformer' in type(self.embedding).__name__: 
                 ## R3M Expects input to be 0-255, preprocess makes 0-1
                 print("shifting input to 0-255 (should only happen for R3M)")
                 i *= 255.0

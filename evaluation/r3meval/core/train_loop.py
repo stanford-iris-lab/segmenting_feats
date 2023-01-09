@@ -52,7 +52,7 @@ def env_constructor(env_name, device='cuda', image_width=256, image_height=256,
     return e
 
 
-def make_bc_agent(env_kwargs:dict, bc_kwargs:dict, demo_paths:list, epochs:int, seed:int, pixel_based=True):
+def make_bc_agent(env_kwargs:dict, bc_kwargs:dict, job_data:dict, demo_paths:list, epochs:int, seed:int, pixel_based=True):
     ## Creates environment
     e = env_constructor(**env_kwargs)
 
@@ -64,7 +64,12 @@ def make_bc_agent(env_kwargs:dict, bc_kwargs:dict, demo_paths:list, epochs:int, 
         
     ## Pass the encoder params to the BC agent (for finetuning)
     if pixel_based:
-        enc_p = e.env.embedding.parameters()
+        if 'ensemble' in job_data.embedding:
+            assert job_data.ft_only_last_layer
+            assert bc_kwargs.finetune
+            enc_p = [e.env.embedding.blocks[-1].attn.scale]
+        else:
+            enc_p = e.env.embedding.parameters()
     else:
         print("Only supports pixel based")
         assert(False)
@@ -125,9 +130,9 @@ def bc_train_loop(job_data:dict) -> None:
 
     ## Creates agent and environment
     env_kwargs = job_data['env_kwargs']
-    e, agent = make_bc_agent(env_kwargs=env_kwargs, bc_kwargs=job_data['bc_kwargs'], 
+    e, agent = make_bc_agent(env_kwargs=env_kwargs, bc_kwargs=job_data['bc_kwargs'], job_data=job_data,
                              demo_paths=demo_paths, epochs=1, seed=job_data['seed'], pixel_based=job_data["pixel_based"])
-    agent.logger.init_wb(job_data)
+    agent.logger.init_wb(job_data, project=job_data.project)
 
     highest_score = -np.inf
     max_success = 0
@@ -151,6 +156,9 @@ def bc_train_loop(job_data:dict) -> None:
         agent.train(job_data['pixel_based'], suppress_fit_tqdm=True, step = last_step)
         
         # perform evaluation rollouts every few epochs
+        if "ensemble" in job_data.embedding:
+            for i, head_weight in enumerate(e.env.embedding.blocks[-1].attn.scale[0,:,0,0]):
+                agent.logger.log_kv(f'head_{i}', head_weight.cpu().detach().numpy())
         if ((agent.steps % job_data['eval_frequency']) < (last_step % job_data['eval_frequency'])):
             agent.policy.model.eval()
             if job_data['pixel_based']:
@@ -163,13 +171,13 @@ def bc_train_loop(job_data:dict) -> None:
             try:
                 ## Success computation and logging for Adroit and Kitchen
                 success_percentage = e.env.unwrapped.evaluate_success(paths)
-                # for i, path in enumerate(paths):
-                #     if (i < 10) and job_data['pixel_based']:
-                #         vid = path['images']
-                #         filename = f'./iterations/vid_{i}.gif'
-                #         from moviepy.editor import ImageSequenceClip
-                #         cl = ImageSequenceClip(vid, fps=20)
-                #         cl.write_gif(filename, fps=20)
+                for i, path in enumerate(paths):
+                    if (i < 3) and job_data['pixel_based']:
+                        vid = path['images']
+                        filename = f'./iterations/vid_{i}.gif'
+                        from moviepy.editor import ImageSequenceClip
+                        cl = ImageSequenceClip(vid, fps=20)
+                        cl.write_gif(filename, fps=20)
 
             except:
                 ## Success computation and logging for MetaWorld
@@ -185,11 +193,15 @@ def bc_train_loop(job_data:dict) -> None:
                 success_percentage = np.mean(sc) * 100
             agent.logger.log_kv('eval_epoch', epoch)
             agent.logger.log_kv('eval_success', success_percentage)
+            if "ensemble" in job_data.embedding:
+                for i, head_weight in enumerate(e.env.embedding.blocks[-1].attn.scale[0,:,0,0]):
+                    agent.logger.log_kv(f'head_{i}', head_weight.cpu().detach().numpy())
 
             # save policy and logging
             if success_percentage >= max_success:
                 pickle.dump(agent.policy, open('./iterations/policy_best.pickle', 'wb'))
-                pickle.dump(e.env.embedding, open('./iterations/embedding_best.pickle', 'wb'))
+                if job_data.bc_kwargs.finetune:
+                    pickle.dump(e.env.embedding, open('./iterations/embedding_best.pickle', 'wb'))
             agent.logger.save_log('./logs/')
             agent.logger.save_wb(step=agent.steps)
 
@@ -238,7 +250,7 @@ def eval_loop(job_data:dict) -> None:
 
     ## Creates agent and environment
     env_kwargs = job_data['env_kwargs']
-    e, agent = make_bc_agent(env_kwargs=env_kwargs, bc_kwargs=job_data['bc_kwargs'], 
+    e, agent = make_bc_agent(env_kwargs=env_kwargs, bc_kwargs=job_data['bc_kwargs'], job_data=job_data,
                              demo_paths=demo_paths, epochs=1, seed=job_data['seed'], pixel_based=job_data["pixel_based"])
     agent.logger.init_wb(job_data)
 
@@ -254,19 +266,19 @@ def eval_loop(job_data:dict) -> None:
     try:
         ## Success computation and logging for Adroit and Kitchen
         success_percentage = e.env.unwrapped.evaluate_success(paths)
-        for i, path in enumerate(paths):
-            if (i < 3) and job_data['pixel_based']:
-                vid = path['images']
-                filename = f'./iterations/vid_{i}.gif'
-                from moviepy.editor import ImageSequenceClip
-                cl = ImageSequenceClip(vid, fps=20)
-                cl.write_gif(filename, fps=20)
+        # for i, path in enumerate(paths):
+        #     if (i < 3) and job_data['pixel_based']:
+        #         vid = path['images']
+        #         filename = f'./iterations/vid_{i}.gif'
+        #         from moviepy.editor import ImageSequenceClip
+        #         cl = ImageSequenceClip(vid, fps=20)
+        #         cl.write_gif(filename, fps=20)
 
-                # for j in range(6):
-                #     heatmap_vid = place_attention_heatmap_over_images(vid, e.env.embedding, head=j)
-                #     filename = f'./iterations/heatmap_vid_{i}_{j}.gif'
-                #     cl = ImageSequenceClip(heatmap_vid, fps=20)
-                #     cl.write_gif(filename, fps=20)
+        #         for j in range(6):
+        #             heatmap_vid = place_attention_heatmap_over_images(vid, e.env.embedding, head=j)
+        #             filename = f'./iterations/heatmap_vid_{i}_{j}.gif'
+        #             cl = ImageSequenceClip(heatmap_vid, fps=20)
+        #             cl.write_gif(filename, fps=20)
     except:
         ## Success computation and logging for MetaWorld
         sc = []
