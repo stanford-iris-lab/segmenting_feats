@@ -12,58 +12,40 @@ from eval_loop import eval_loop
 
 cwd = os.getcwd()
 
-sweep_dir = '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_noft/'
-# sweep_dir = '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/'
+sweep_dir = '/iris/u/kayburns/new_arch/r3m/evaluation/outputs/main_sweep_noft/'
 
-def is_target_task(job_data):
+def is_target_task(target_job_data, query_job_data):
     # envs
-    slide_door = job_data.env == 'kitchen_sdoor_open-v3'
-    hinge_door = job_data.env == 'kitchen_ldoor_open-v3'
-    knob = job_data.env == 'kitchen_knob1_on-v3'
-    light = job_data.env == 'kitchen_light_on-v3'
-    micro = job_data.env == 'kitchen_micro_open-v3'
-    assembly = job_data.env == 'assembly-v2-goal-observable'
+    slide_door = query_job_data.env == 'hammer-v2-goal-observable'
 
     # cameras
-    left_cap = job_data.camera == 'left_cap2'
-    right_cap = job_data.camera == 'right_cap2'
-    default = job_data.camera == 'default'
+    left_cap = query_job_data.camera == 'left_cap2'
 
     # embeddings
-    resnet50_dino = job_data.embedding == 'resnet50_dino'
-    ensemble = "ensemble" in job_data.embedding
-    resnet50 = job_data.embedding == 'resnet50'
-    resnet50_ft_false = resnet50 and not job_data.bc_kwargs.finetune
-    resnet50_insup = 'resnet50_insup' == job_data.embedding
-    resnet50_ft_true = resnet50 and job_data.bc_kwargs.finetune
-    dino_mask = job_data.env_kwargs.load_path == 'dino-3'
-    dino = job_data.embedding == 'dino'
-    mvp = job_data.embedding == 'mvp'
-    a_bad_emb = dino_mask or resnet50_dino or resnet50_ft_false or mvp
-    dino_3 = job_data.embedding == 'dino-3' and not job_data.bc_kwargs.finetune
-    dino_5 = job_data.embedding == 'dino-5' and not job_data.bc_kwargs.finetune
-    dino_0 = job_data.embedding == 'dino-0'
-    dino_01234 = job_data.embedding == 'dino-0-1-2-3-4'
-    dino_ft_false = dino and not job_data.bc_kwargs.finetune
-    dino_ft_true = dino and job_data.bc_kwargs.finetune
-    deit = 'deit' in job_data.embedding
-    deit_sup = 'deit_s_insup' == job_data.embedding
-    deit_s = 'deit_s' == job_data.embedding
-    deit_shape = 'deit_s_sin_dist_shape_feat' == job_data.embedding
-    deit_cls = 'deit_s_sin_dist_cls_feat' == job_data.embedding
-    in_mvp = job_data.embedding == 'mvp' and 'ft_only_last_layer' in job_data and job_data.ft_only_last_layer
+    deit_sin = (query_job_data.embedding == 'deit_s_sin') and (query_job_data.env_kwargs.load_path == 'deit_s_sin')
 
     # num_demos
-    five_demos = job_data.num_demos == 5
-    ten_demos = job_data.num_demos == 10
-    twenty_five_demos = job_data.num_demos == 25
+    ten_demos = query_job_data.num_demos == 10
 
     # seeds
-    seed_123 = job_data.seed == 123
-    seed_124 = job_data.seed == 124
-    seed_125 = job_data.seed == 125
+    seed_123 = query_job_data.seed == 123
+    
+    # if (slide_door and left_cap and deit_sin and ten_demos and seed_123):
+    #     import pdb; pdb.set_trace()
 
-    return resnet50 and assembly and not job_data.bc_kwargs.finetune
+    target_conditions_met = [
+        target_job_data.env == query_job_data.env, 
+        target_job_data.camera == query_job_data.camera,
+        target_job_data.embedding == query_job_data.embedding,
+        target_job_data.env_kwargs.load_path == query_job_data.env_kwargs.load_path,
+        target_job_data.bc_kwargs.finetune == query_job_data.bc_kwargs.finetune,
+        target_job_data.num_demos == query_job_data.num_demos,
+        target_job_data.seed == query_job_data.seed,
+        target_job_data.proprio == query_job_data.proprio,
+        target_job_data.get('ft_only_last_layer', False) == query_job_data.get('ft_only_last_layer', False)
+    ]
+
+    return all(target_conditions_met)
 
 # ===============================================================================
 # Process Inputs and configure job
@@ -81,15 +63,6 @@ def configure_jobs(job_data:dict) -> None:
     job_data['cwd'] = cwd
 
     run_paths = os.listdir(sweep_dir)
-    # run_paths = [
-    #             '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/2022-10-16_17-27-29/', # 123, left_cap2, dino ft
-    #             '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/2022-10-17_00-46-40/', # 123, left_cap2, r3m ft
-    #             '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/2022-10-16_09-58-24/', # 123, left_cap2, r3m
-    #             '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/BC_pretrained_rep/2022-10-10_15-30-43/', # dino
-    #             '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/2022-10-19_11-20-04/', # mvp
-    #             '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/2022-10-17_06-21-43/', # mvp
-    #             '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/2022-10-19_10-30-13/', # mvp
-    #         ]
 
     for run_path in run_paths:
 
@@ -103,7 +76,7 @@ def configure_jobs(job_data:dict) -> None:
         with open(old_config_path, 'r') as fp:
             old_job_data = OmegaConf.load(fp)
 
-        if not is_target_task(old_job_data):
+        if not is_target_task(job_data, old_job_data):
             continue
 
         if not os.path.isfile(policy_path):
@@ -115,19 +88,10 @@ def configure_jobs(job_data:dict) -> None:
                   f'{old_job_data.env_kwargs.load_path}, ' \
                   f'{os.path.join(sweep_dir, run_path)}, ' \
                   f'{old_job_data.camera}')
-            # import pdb; pdb.set_trace()
             continue
 
-        
         job_data.env_kwargs = old_job_data.env_kwargs
-        job_data.embedding = old_job_data.embedding
-        job_data.num_demos = old_job_data.num_demos
-        job_data.camera = old_job_data.camera
-        job_data.env = old_job_data.env
-        job_data.seed = old_job_data.seed
-        job_data.proprio = old_job_data.proprio
         job_data.bc_kwargs.load_path = policy_path
-        job_data.bc_kwargs.finetune = old_job_data.bc_kwargs.finetune
         if job_data.bc_kwargs.finetune:
             job_data.env_kwargs.load_path = embedding_path
         else:

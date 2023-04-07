@@ -108,6 +108,73 @@ class IgnoreEnc(nn.Module):
         B = im.shape[0]
         return torch.normal(torch.zeros((B, self.m)), torch.ones(B, self.m))
 
+class MaskVisionTransformerEnc(nn.Module):
+    def __init__(self, vit_model):
+        super().__init__()
+        self.vit_model = vit_model
+
+    def forward(self, im):
+        B = im.shape[0]
+        C = 6
+        # fetch attention masks
+        attn = self.vit_model.get_last_selfattention(im)
+        masks = attn[:,:,0,:].reshape(B, C, -1) # B, C, H*W
+        # sum weights from "good" attention masks to reweight patches
+        masks = masks[:,[1,3,4]].sum(1).unsqueeze(-1)
+        masks[:,0,:] = 0
+        masks += 1
+
+        # reweight tokens by masks
+        x = self.vit_model.prepare_tokens(im)
+        x = x * masks
+        for blk in self.vit_model.blocks:
+            x = blk(x)
+        x = self.vit_model.norm(x)
+        return x[:, 0]
+
+class KeypointsVisionTransformerEnc(nn.Module):
+    def __init__(self, vit_model):
+        super().__init__()
+        self.vit_model = vit_model
+        self.embed_dim = 6
+    
+    def get_last_value(self, im):
+        x = self.vit_model.prepare_tokens(im)
+        for i, blk in enumerate(self.vit_model.blocks):
+            if i < len(self.vit_model.blocks) - 1:
+                x = blk(x)
+            else:
+                # apply norm to input
+                x = blk.norm1(x)
+                # apply attention up to value
+                B, N, C = x.shape
+                qkv = blk.attn.qkv(x).reshape(B, N, 3, blk.attn.num_heads, C // blk.attn.num_heads).permute(2, 0, 3, 1, 4)
+                return qkv[2]
+
+    def forward(self, im):
+        B = im.shape[0]
+        C = 6
+        # fetch attention masks and values
+        attn = self.vit_model.get_last_selfattention(im)
+        masks = attn[:,:,0,:].reshape(B, C, -1) # B, C, H*W
+        values = self.get_last_value(im)
+        D = values.shape[-1]
+        # sum weights from "good" attention masks to reweight patches
+        # masks = masks[:,[1,3,4]].sum(1).unsqueeze(-1)
+        # ignore CLS token
+        masks = masks[:,:,1:]
+        values = values[:,:,1:]
+        # find max keypoints and index into values
+        keypoints = masks.argmax(-1)
+        values_flat = values.reshape(B*C, -1, D) # B*C, H*W, D
+        kp_flat = keypoints.reshape(-1).long()
+        values_flat = values_flat[torch.arange(B*C), kp_flat]
+        values = values_flat.reshape(B, C, D)
+        # normalize keypoints
+        keypoints = (keypoints - 98) / 196
+        # return concattenated values and keypoints
+        return torch.cat([values, keypoints.unsqueeze(-1)], -1).reshape(B, -1)
+
 
 class StateEmbedding(gym.ObservationWrapper):
     """
@@ -231,7 +298,7 @@ class StateEmbedding(gym.ObservationWrapper):
             self.transforms = T.Compose([T.ToTensor(),T.Resize(224)])
             embedding_dim = 1024
             embedding = IgnoreEnc(embedding_dim)
-        elif "pickle" in load_path and 'dino' in embedding_name and embedding_name != 'resnet50_dino': # TODO
+        elif "pickle" in load_path and 'dino' in embedding_name and embedding_name != 'resnet50_dino' and embedding_name != 'mask_two_pass_dino': # TODO
             # get vision transformer by loading original weights 🤪
             embedding = torch.hub.load('facebookresearch/dino:main',
                                        'dino_vits16')
@@ -270,7 +337,7 @@ class StateEmbedding(gym.ObservationWrapper):
         #     self.transforms = T.Compose([T.Resize(256),
         #                 T.CenterCrop(224),
         #                 T.ToTensor()]) # ToTensor() divides by 255
-        elif "dino" in embedding_name and embedding_name != 'resnet50_dino':
+        elif "dino" in embedding_name and embedding_name != 'resnet50_dino' and embedding_name != 'mask_two_pass_dino':
             embedding = torch.hub.load('facebookresearch/dino:main',
                                        'dino_vits16')
             embedding.eval()
@@ -316,21 +383,46 @@ class StateEmbedding(gym.ObservationWrapper):
                                          T.CenterCrop(224),
                                          T.ToTensor(),
                                          T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),])
-        elif embedding_name=='resnet50_dino' and 'pickle' in load_path:
-            try:
-                print(f"Loading model from {load_path}, resnet50_dino")
-                embedding = pickle.load(open(load_path, 'rb'))
-            except:
-                # /iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/2022-11-01_16-28-13/
-                import pdb; pdb.set_trace()
+        # elif embedding_name=='resnet50_dino' and 'pickle' in load_path:
+        #     try:
+        #         print(f"Loading model from {load_path}, resnet50_dino")
+        #         embedding = pickle.load(open(load_path, 'rb'))
+        #     except:
+        #         # /iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_1/2022-11-01_16-28-13/
+        #         import pdb; pdb.set_trace()
             
-            embedding.eval()
-            embedding_dim = embedding.embed_dim
+        #     embedding.eval()
+        #     embedding_dim = embedding.embed_dim
 
-            self.transforms = T.Compose([T.Resize(256, interpolation=3),
-                                         T.CenterCrop(224),
-                                         T.ToTensor(),
-                                         T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),])
+        #     self.transforms = T.Compose([T.Resize(256, interpolation=3),
+        #                                  T.CenterCrop(224),
+        #                                  T.ToTensor(),
+        #                                  T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),])
+        elif embedding_name == 'mask_two_pass_dino':
+            vit_model = torch.hub.load('facebookresearch/dino:main',
+                                       'dino_vits16')
+            vit_model.eval()
+            embedding_dim = vit_model.embed_dim
+            embedding = MaskVisionTransformerEnc(vit_model)
+            embedding.eval()
+
+            self.transforms = T.Compose([T.ToTensor(),
+                                         T.Resize(224),
+                                         T.Normalize((0.485, 0.456, 0.406),
+                                                     (0.229, 0.224, 0.225))])
+        elif embedding_name == 'keypoints':
+            import dino
+            vit_model = torch.hub.load('facebookresearch/dino:main',
+                                       'dino_vits16')
+            vit_model.eval()
+            embedding_dim = 6*65
+            embedding = KeypointsVisionTransformerEnc(vit_model)
+            embedding.eval()
+
+            self.transforms = T.Compose([T.ToTensor(),
+                                         T.Resize(224),
+                                         T.Normalize((0.485, 0.456, 0.406),
+                                                     (0.229, 0.224, 0.225))])
         else:
             raise NameError("Invalid Model")
         embedding.eval()

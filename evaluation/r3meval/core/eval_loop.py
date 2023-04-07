@@ -122,28 +122,28 @@ def eval_model_path(job_data, demo_paths, model_path, init=False):
         for i, path in enumerate(paths):
             if (i < 1) and job_data['pixel_based']:
                 vid = path['images']
-                filename = f'./iterations/vid_{i}.gif'
+        #         filename = f'./iterations/vid_{i}.gif'
                 from moviepy.editor import ImageSequenceClip
-                cl = ImageSequenceClip(vid, fps=20)
-                cl.write_gif(filename, fps=20)
+        #         cl = ImageSequenceClip(vid, fps=20)
+        #         cl.write_gif(filename, fps=20)
 
-                # if job_data.embedding == 'dino' or job_data.embedding == 'mvp':
-                #     for j in range(6):
-                #         heatmap_vid = place_attention_heatmap_over_images(vid, e.env.embedding, job_data.embedding, head=j)
-                #         filename = f'./iterations/heatmap_vid_{i}_{j}_{shift}.gif'
-                #         cl = ImageSequenceClip(heatmap_vid, fps=20)
-                #         cl.write_gif(filename, fps=20)
+                if job_data.embedding == 'dino' or job_data.embedding == 'mvp':
+                    for j in range(6):
+                        heatmap_vid = place_attention_heatmap_over_images(vid, e.env.embedding, job_data.embedding, head=j)
+                        filename = f'./iterations/heatmap_vid_{i}_{j}_{shift}.gif'
+                        cl = ImageSequenceClip(heatmap_vid, fps=20)
+                        cl.write_gif(filename, fps=20)
     except:
         ## Success computation and logging for MetaWorld
         sc = []
         for i, path in enumerate(paths):
             sc.append(path['env_infos']['success'][-1])
-            if (i < 3) and job_data['pixel_based']:
-                vid = path['images']
-                filename = f'./iterations/vid_{i}.gif'
-                from moviepy.editor import ImageSequenceClip
-                cl = ImageSequenceClip(vid, fps=20)
-                cl.write_gif(filename, fps=20)
+            # if (i < 3) and job_data['pixel_based']:
+            #     vid = path['images']
+            #     filename = f'./iterations/vid_{i}.gif'
+            #     from moviepy.editor import ImageSequenceClip
+            #     cl = ImageSequenceClip(vid, fps=20)
+            #     cl.write_gif(filename, fps=20)
 
                 # for j in range(6):
                 #     heatmap_vid = place_attention_heatmap_over_images(vid, e.env.embedding, head=j)
@@ -210,9 +210,24 @@ def eval_loop(job_data:dict) -> None:
             model_path = f'/iris/u/kayburns/packages/mj_envs/mj_envs/envs/relay_kitchen/assets/franka_kitchen_{lighting}.xml'
             eval_model_path(job_data, demo_paths, model_path, init=False)
     elif 'assembly' in job_data.env:
-        shifts = ['brighter', 'darker', 'cast_left', 'cast_right', 'distractor_medium', 'granitetable', 'metal1table']
-        for shift in shifts:
+        for shift in ['distractor_easy', 'distractor_medium', 'distractor_hard', 'blue-woodtable', 'dark-woodtable', 'darkwoodtable', 'cast_right', 'cast_left', 'darker', 'brighter']:
             model_path = f'/iris/u/kayburns/packages/metaworld_r3m/metaworld/envs/assets_v2/sawyer_xyz/sawyer_assembly_peg_{shift}.xml'
+            eval_model_path(job_data, demo_paths, model_path, init=False)
+    elif 'bin' in job_data.env:
+        for shift in ['distractor_easy', 'distractor_medium', 'distractor_hard', 'blue-woodtable', 'dark-woodtable', 'darkwoodtable', 'cast_right', 'cast_left', 'darker', 'brighter']:
+            model_path = f'/iris/u/kayburns/packages/metaworld_r3m/metaworld/envs/assets_v2/sawyer_xyz/sawyer_bin_picking_{shift}.xml'
+            eval_model_path(job_data, demo_paths, model_path, init=False)
+    elif 'button' in job_data.env:
+        for shift in ['distractor_easy', 'distractor_medium', 'distractor_hard', 'blue-woodtable', 'dark-woodtable', 'darkwoodtable', 'cast_right', 'cast_left', 'darker', 'brighter']:
+            model_path = f'/iris/u/kayburns/packages/metaworld_r3m/metaworld/envs/assets_v2/sawyer_xyz/sawyer_button_press_topdown_{shift}.xml'
+            eval_model_path(job_data, demo_paths, model_path, init=False)
+    elif 'drawer' in job_data.env:
+        for shift in ['distractor_easy', 'distractor_medium', 'distractor_hard', 'blue-woodtable', 'dark-woodtable', 'darkwoodtable', 'cast_right', 'cast_left', 'darker', 'brighter']:
+            model_path = f'/iris/u/kayburns/packages/metaworld_r3m/metaworld/envs/assets_v2/sawyer_xyz/sawyer_drawer_{shift}.xml'
+            eval_model_path(job_data, demo_paths, model_path, init=False)
+    elif 'hammer' in job_data.env:
+        for shift in ['distractor_easy', 'distractor_medium', 'distractor_hard', 'blue-woodtable', 'dark-woodtable', 'darkwoodtable', 'cast_right', 'cast_left', 'darker', 'brighter']:
+            model_path = f'/iris/u/kayburns/packages/metaworld_r3m/metaworld/envs/assets_v2/sawyer_xyz/sawyer_hammer_{shift}.xml'
             eval_model_path(job_data, demo_paths, model_path, init=False)
 
         
