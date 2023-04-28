@@ -3,7 +3,7 @@
 #SBATCH --mem=32G
 #SBATCH --gres=gpu:1
 #SBATCH --exclude=iris4,iris2,iris-hp-z8,iris3
-#SBATCH --job-name="AMPHIBIOUS GAZE IMPROVEMENT"
+#SBATCH --job-name="AGI: Architecture Generalization Improvement"
 #SBATCH --time=3-0:0
 #SBATCH --account=iris
 
@@ -22,7 +22,7 @@ else
     export PROPRIO=9
 fi
 
-export PYTHONPATH='/iris/u/kayburns/new_arch/Intriguing-Properties-of-Vision-Transformers/'
+export PYTHONPATH='/iris/u/kayburns/new_arch/Intriguing-Properties-of-Vision-Transformers/:/iris/u/kayburns/new_arch/moco-v3'
 source /sailhome/kayburns/.bashrc
 conda activate py3.8_torch1.10.1
 cd /iris/u/kayburns/new_arch/r3m/evaluation/

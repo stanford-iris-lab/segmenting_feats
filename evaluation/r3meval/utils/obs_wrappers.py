@@ -239,8 +239,15 @@ class StateEmbedding(gym.ObservationWrapper):
                 print(msg)
             elif embedding_name == "deit_s":
                 embedding = vit_models.dino_small_feat(patch_size=16, pretrained=True)
+            elif embedding_name == "deit_s_avgpool":
+                embedding = vit_models.dino_small_avgpoolfeat(patch_size=16, pretrained=True)
             elif embedding_name == "deit_s_insup":
                 embedding = vit_models.dino_small_feat(patch_size=16, pretrained=False)
+                state_dict = torch.hub.load_state_dict_from_url(url="https://dl.fbaipublicfiles.com/deit/deit_small_patch16_224-cd65a155.pth")
+                msg = embedding.load_state_dict(state_dict["model"], strict=False)
+                print(msg)
+            elif embedding_name == "deit_s_avgpool_insup":
+                embedding = vit_models.dino_small_avgpoolfeat(patch_size=16, pretrained=False)
                 state_dict = torch.hub.load_state_dict_from_url(url="https://dl.fbaipublicfiles.com/deit/deit_small_patch16_224-cd65a155.pth")
                 msg = embedding.load_state_dict(state_dict["model"], strict=False)
                 print(msg)
@@ -248,10 +255,35 @@ class StateEmbedding(gym.ObservationWrapper):
 
             embedding.eval()
             embedding_dim = embedding.embed_dim
+            if "avgpool" in embedding_name:
+                embedding_dim *= 2
             self.transforms = T.Compose([T.Resize((224, 224)),
                             T.ToTensor(), # ToTensor() divides by 255
                             T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
 
+        elif "mocov3_vits" == embedding_name:
+            import vits
+            embedding = vits.vit_small()
+            checkpoint = model_zoo.load_url("https://dl.fbaipublicfiles.com/moco-v3/vit-s-300ep/vit-s-300ep.pth.tar")
+            state_dict = checkpoint["state_dict"]
+            for k in list(state_dict.keys()):
+                if k.startswith('module.base_encoder') and not k.startswith('module.base_encoder.head'):
+                    # remove prefix
+                    state_dict[k[len("module.base_encoder."):]] = state_dict[k]
+                # delete renamed or unused k
+                del state_dict[k]
+            embedding.load_state_dict(state_dict, strict=False)
+            embedding.head = nn.Identity()
+            embedding = embedding.eval()
+            embedding_dim = embedding.embed_dim
+            normalize = T.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+            self.transforms = T.Compose([
+                T.Resize(256),
+                T.CenterCrop(224),
+                T.ToTensor(),
+                normalize,
+            ])
         elif "resnet50_sin" == embedding_name:
             embedding = models.resnet50(pretrained=False)
             embedding = embedding.eval()
@@ -294,6 +326,14 @@ class StateEmbedding(gym.ObservationWrapper):
                             T.CenterCrop(224),
                             T.ToTensor(), # ToTensor() divides by 255
                             T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
+        elif embedding_name == 'vip':
+            from vip import load_vip
+            embedding = load_vip().cuda()
+            embedding.eval()
+            embedding_dim = 1024
+            self.transforms = T.Compose([T.Resize(256),
+                            T.CenterCrop(224),
+                            T.ToTensor()]) # ToTensor() divides by 255
         elif "ignore_input" == load_path:
             self.transforms = T.Compose([T.ToTensor(),T.Resize(224)])
             embedding_dim = 1024
@@ -471,7 +511,7 @@ class StateEmbedding(gym.ObservationWrapper):
             i = self.transforms(Image.fromarray(o.astype(np.uint8))).reshape(-1, 3, 224, 224)
             if (self.embedding_name == 'resnet50') or (self.embedding_name == 'resnet50_insup') or (self.embedding_name == 'resnet50_dino'): # mapping resnet50 to R3M # if not 'VisionTransformer' in type(self.embedding).__name__: # and "pickle" not in self.load_path: # not 'VisionTransformer' in type(self.embedding).__name__: 
                 ## R3M Expects input to be 0-255, preprocess makes 0-1
-                print("shifting input to 0-255 (should only happen for R3M)")
+                print("shifting input to 0-255 (should only happen for resnets)")
                 i *= 255.0
             inp.append(i)
         inp = torch.cat(inp)

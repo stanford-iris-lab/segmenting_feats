@@ -13,25 +13,9 @@ from eval_loop import eval_loop
 cwd = os.getcwd()
 
 sweep_dir = '/iris/u/kayburns/new_arch/r3m/evaluation/outputs/main_sweep_noft/'
+# sweep_dir = '/iris/u/kayburns/new_arch/r3m/evaluation/r3meval/core/outputs/main_sweep_noft/'
 
 def is_target_task(target_job_data, query_job_data):
-    # envs
-    slide_door = query_job_data.env == 'hammer-v2-goal-observable'
-
-    # cameras
-    left_cap = query_job_data.camera == 'left_cap2'
-
-    # embeddings
-    deit_sin = (query_job_data.embedding == 'deit_s_sin') and (query_job_data.env_kwargs.load_path == 'deit_s_sin')
-
-    # num_demos
-    ten_demos = query_job_data.num_demos == 10
-
-    # seeds
-    seed_123 = query_job_data.seed == 123
-    
-    # if (slide_door and left_cap and deit_sin and ten_demos and seed_123):
-    #     import pdb; pdb.set_trace()
 
     target_conditions_met = [
         target_job_data.env == query_job_data.env, 
