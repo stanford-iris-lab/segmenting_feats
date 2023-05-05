@@ -284,6 +284,29 @@ class StateEmbedding(gym.ObservationWrapper):
                 T.ToTensor(),
                 normalize,
             ])
+        elif "mocov3_resnet50" == embedding_name:
+            embedding = models.resnet50(pretrained=False, progress=False)
+            embedding_dim = 2048
+            checkpoint = model_zoo.load_url("https://dl.fbaipublicfiles.com/moco-v3/r-50-300ep/r-50-300ep.pth.tar")
+            state_dict = checkpoint["state_dict"]
+            for k in list(state_dict.keys()):
+                if k.startswith('module.base_encoder') and not k.startswith('module.base_encoder.head'):
+                    # remove prefix
+                    state_dict[k[len("module.base_encoder."):]] = state_dict[k]
+                # delete renamed or unused k
+                del state_dict[k]
+            embedding.load_state_dict(state_dict, strict=False)
+
+            embedding.fc = nn.Identity()
+            embedding = embedding.eval()
+            normalize = T.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+            self.transforms = T.Compose([
+                T.Resize(256),
+                T.CenterCrop(224),
+                T.ToTensor(),
+                normalize,
+            ])
         elif "resnet50_sin" == embedding_name:
             embedding = models.resnet50(pretrained=False)
             embedding = embedding.eval()
@@ -484,7 +507,7 @@ class StateEmbedding(gym.ObservationWrapper):
         ### INPUT SHOULD BE [0,255]
         if self.embedding is not None:
             inp = self.transforms(Image.fromarray(observation.astype(np.uint8))).reshape(-1, 3, 224, 224)
-            if not 'VisionTransformer' in type(self.embedding).__name__: # "r3m" in self.load_path and "pickle" not in self.load_path:
+            if not ('VisionTransformer' in type(self.embedding).__name__ or 'moco' in self.embedding_name): # "r3m" in self.load_path and "pickle" not in self.load_path:
                 print("shifting input to 0-255 (should only happen for R3M)")
                 ## R3M Expects input to be 0-255, preprocess makes 0-1
                 inp *= 255.0
