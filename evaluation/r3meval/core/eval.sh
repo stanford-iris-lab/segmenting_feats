@@ -12,6 +12,7 @@ export SEED=${2}
 export CAM_NAME=${3}
 export EMB_NAME=${4}
 export LOAD_PATH=${5}
+export RUN_ID=${6}
 export NUM_DEMOS=10
 
 if [[ "${1}" == *"v2"* ]]; then
@@ -29,4 +30,4 @@ cd /iris/u/kayburns/new_arch/r3m/evaluation/
 python r3meval/core/hydra_eval_launcher.py hydra/launcher=local hydra/output=local \
     env=${ENV_NAME} camera=${CAM_NAME} pixel_based=true \
     embedding=${EMB_NAME} num_demos=${NUM_DEMOS} env_kwargs.load_path=${LOAD_PATH} \
-    bc_kwargs.finetune=false proprio=${PROPRIO} job_name=try_r3m seed=${SEED}
+    bc_kwargs.finetune=false proprio=${PROPRIO} job_name=try_r3m seed=${SEED} run_id=${RUN_ID}

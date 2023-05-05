@@ -357,6 +357,11 @@ class StateEmbedding(gym.ObservationWrapper):
             self.transforms = T.Compose([T.Resize(256),
                             T.CenterCrop(224),
                             T.ToTensor()]) # ToTensor() divides by 255
+        elif embedding_name == 'clip_vit16':
+            import clip
+            model, self.transforms = clip.load("ViT-B/16", device='cuda')
+            embedding = ClipEnc(model).eval()
+            embedding_dim = 512
         elif "ignore_input" == load_path:
             self.transforms = T.Compose([T.ToTensor(),T.Resize(224)])
             embedding_dim = 1024
@@ -507,7 +512,7 @@ class StateEmbedding(gym.ObservationWrapper):
         ### INPUT SHOULD BE [0,255]
         if self.embedding is not None:
             inp = self.transforms(Image.fromarray(observation.astype(np.uint8))).reshape(-1, 3, 224, 224)
-            if not ('VisionTransformer' in type(self.embedding).__name__ or 'moco' in self.embedding_name): # "r3m" in self.load_path and "pickle" not in self.load_path:
+            if not ('VisionTransformer' in type(self.embedding).__name__ or 'moco' in self.embedding_name or 'clip_vit' in self.embedding_name): # "r3m" in self.load_path and "pickle" not in self.load_path:
                 print("shifting input to 0-255 (should only happen for R3M)")
                 ## R3M Expects input to be 0-255, preprocess makes 0-1
                 inp *= 255.0

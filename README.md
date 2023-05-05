@@ -4,24 +4,38 @@ Code for evaluating different visual pre-training strategies.
 
 ## Installation
 
-To install R3M from an existing conda environment, simply run `pip install -e .` from this directory. 
+```
+conda activate your_conda_env
+alias pip=$(which pip)
+pip install git+https://github.com/openai/CLIP.git
+```
 
-You can alternatively build a fresh conda env from the r3m_base.yaml file [here](https://github.com/facebookresearch/r3m/blob/main/r3m/r3m_base.yaml) and then install from this directory with `pip install -e .`
+## Change the following files for your envs/paths
+```
+evaluation/r3meval/core/run.sh
+evaluation/r3meval/core/eval.sh
+```
+## Change the following files to match your experimental condition
+```
+evaluation/r3meval/core/launch_run.sh
+evaluation/r3meval/core/launch_eval.sh
+evaluation/r3meval/core/hydra_eval_launcher.py (sweep_dir=/iris/u/ur_name/...)
+```
+*Note: include a new run_id when you need to rerun an experiment*
+
 
 ## Running Evaluation
 
 To train policies on top of each representation:
 ```
 cd evaluation/r3meval/core/
-./run.sh
+./launch_run.sh
 ```
 
-## Testing Transfer
-
-To test transfer with kitchen shift:
+Run zero-shot performance:
 ```
 cd evaluation/r3meval/core/
-./eval.sh
+./launch_eval.sh
 ```
 
 ## License
