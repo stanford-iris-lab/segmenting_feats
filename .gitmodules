@@ -1,0 +1,3 @@
+[submodule "evaluate_segmentation"]
+	path = evaluate_segmentation
+	url = https://github.com/kayburns/Intriguing-Properties-of-Vision-Transformers.git

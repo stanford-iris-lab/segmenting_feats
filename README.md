@@ -38,6 +38,15 @@ cd evaluation/r3meval/core/
 ./launch_eval.sh
 ```
 
+## Evaluate segmentation performance 
+
+Use the following script modified from [Intriuing-Properties-of-Vision-Transformers](https://arxiv.org/abs/2105.10497)
+```
+cd evaluate_segmentation/
+./evaluate_segmentation.sh
+```
+Add your own model by modifying [evaluate_segmentation/utils.py](./evaluate_segmentation/utils.py).
+
 ## License
 
 R3M is licensed under the MIT license.
